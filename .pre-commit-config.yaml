@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.0
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^apps/server/
+      - id: ruff-format
+        args: [--check]
+        files: ^apps/server/
+
+  # mypy: WSL / Linux
+  - repo: local
+    hooks:
+      - id: mypy-server
+        name: mypy (haedok-server)
+        entry: bash -c 'cd apps/server && uv run mypy app/'
+        language: system
+        types: [python]
+        files: ^apps/server/
+        pass_filenames: false
+
+  # mypy: Windows (수동 실행: pre-commit run --hook-stage manual)
+  - repo: local
+    hooks:
+      - id: mypy-server-win
+        name: mypy (haedok-server, win)
+        entry: cmd /c "cd apps/server && uv run mypy app/"
+        language: system
+        types: [python]
+        files: ^apps/server/
+        pass_filenames: false
+        stages: [manual]

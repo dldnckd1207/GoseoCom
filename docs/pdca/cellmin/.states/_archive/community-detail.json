@@ -1,0 +1,10 @@
+{
+  "feature": "community-detail",
+  "phase": "done",
+  "plan": "docs/pdca/cellmin/1-plan/2026-04-30/community-detail.md",
+  "design": "docs/pdca/cellmin/2-design/2026-04-30/community-detail.md",
+  "report": "docs/pdca/cellmin/4-reports/2026-05-03/community-detail.md",
+  "score": 91.5,
+  "iteration": 1,
+  "updated_at": "2026-05-03T00:00:00"
+}

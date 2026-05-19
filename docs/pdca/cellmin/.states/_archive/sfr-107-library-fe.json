@@ -1,0 +1,9 @@
+{
+  "feature": "sfr-107-library-fe",
+  "phase": "act",
+  "plan": "docs/pdca/cellmin/1-plan/2026-05-15/sfr-107-library-fe.md",
+  "design": "docs/pdca/cellmin/2-design/2026-05-15/sfr-107-library-fe.md",
+  "score": 80,
+  "iteration": 2,
+  "updated_at": "2026-05-15T00:00:00"
+}

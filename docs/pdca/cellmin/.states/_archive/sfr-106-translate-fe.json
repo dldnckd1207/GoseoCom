@@ -1,0 +1,9 @@
+{
+  "feature": "sfr-106-translate-fe",
+  "phase": "check",
+  "plan": "docs/pdca/cellmin/1-plan/2026-05-15/sfr-106-translate-fe.md",
+  "design": "docs/pdca/cellmin/2-design/2026-05-15/sfr-106-translate-fe.md",
+  "score": 92.4,
+  "iteration": 0,
+  "updated_at": "2026-05-15T00:00:00"
+}

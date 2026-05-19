@@ -1,0 +1,9 @@
+/* shared/styles/layout.css — 2개 이상 슬라이스에서 공유하는 공통 레이아웃 클래스 */
+
+.container-main {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+.page-wrapper {
+    @apply min-h-screen bg-gray-50;
+}

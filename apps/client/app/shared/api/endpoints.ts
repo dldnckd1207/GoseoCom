@@ -1,0 +1,17 @@
+export const API_ENDPOINTS = {
+    ME: '/api/v1/users/me',
+    AUTH_REFRESH: '/auth/refresh',
+    AUTH_LOGOUT: '/auth/logout',
+    BOARDS_LIST: '/api/v1/boards/list',
+    BOARD_CATEGORIES: (boardCode: string) => `/api/v1/boards/${boardCode}/categories`,
+    POSTS: '/api/v1/posts',
+    POSTS_LIST: '/api/v1/posts/list',
+    POST: (id: string) => `/api/v1/posts/${id}`,
+    POST_COMMENTS_LIST: (id: string) => `/api/v1/posts/${id}/comments/list`,
+    POST_COMMENTS: (id: string) => `/api/v1/posts/${id}/comments`,
+    UPLOADS: '/api/v1/uploads',
+    TRANSLATE: '/api/v1/translate',
+    TRANSLATE_LIST: '/api/v1/translate/list',
+    TRANSLATE_DETAIL: (id: string) => `/api/v1/translate/${id}`,
+    TRANSLATE_RETRY: (id: string) => `/api/v1/translate/${id}/retry`,
+} as const;

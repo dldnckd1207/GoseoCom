@@ -1,0 +1,48 @@
+# =============================================================================
+# apps/server .gitignore — Python / FastAPI 전용
+# =============================================================================
+
+# Environment / Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# uv (lock 파일은 커밋 대상)
+.uv/
+
+# Build
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Type checking / Lint cache
+.mypy_cache/
+.ruff_cache/
+
+# Database
+*.db
+*.sqlite3
+
+# 파일 업로드 저장소
+storage/
+
+# Logs
+*.log
+logs/

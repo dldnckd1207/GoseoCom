@@ -1,0 +1,12 @@
+{
+  "nickname": "cellmin",
+  "feature": "sfr-100",
+  "phase": "report",
+  "plan": "docs/pdca/cellmin/1-plan/2026-04-15/sfr-100.md",
+  "design": "docs/pdca/cellmin/2-design/2026-04-15/sfr-100.md",
+  "analysis": "docs/pdca/cellmin/3-analysis/2026-04-15/sfr-100.md",
+  "report": "docs/pdca/cellmin/4-reports/2026-04-15/sfr-100.md",
+  "score": 92,
+  "iteration": 2,
+  "completed_at": "2026-04-15"
+}

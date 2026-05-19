@@ -1,0 +1,9 @@
+{
+  "feature": "sfr-105-ssr-401",
+  "phase": "check",
+  "plan": "docs/pdca/cellmin/1-plan/2026-05-16/sfr-105-ssr-401.md",
+  "design": "docs/pdca/cellmin/2-design/2026-05-16/sfr-105-ssr-401.md",
+  "score": 86,
+  "iteration": 6,
+  "updated_at": "2026-05-16T00:00:00"
+}

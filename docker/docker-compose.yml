@@ -1,0 +1,57 @@
+services:
+  # ---------------------------------------------------------------------------
+  # FastAPI 서버
+  # ---------------------------------------------------------------------------
+  server:
+    image: haedok-server:${APP_VERSION:-0.1.0}
+    build:
+      context: ..
+      dockerfile: docker/server/Dockerfile
+    container_name: haedok-server
+    restart: unless-stopped
+    env_file:
+      - ../apps/server/.env
+    ports:
+      - "${SERVER_PORT:-8000}:8000"
+    volumes:
+      - server_files:/app/storage/files
+    networks:
+      mynet:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Remix 클라이언트 (SSR)
+  # ---------------------------------------------------------------------------
+  client:
+    image: haedok-client:${APP_VERSION:-0.1.0}
+    build:
+      context: ..
+      dockerfile: docker/client/Dockerfile
+      args:
+        VITE_API_BASE_URL: http://server:8000
+        # 브라우저가 접근하는 공개 URL — HTTPS 운영 시 반드시 https://도메인 으로 설정
+        VITE_PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
+    container_name: haedok-client
+    restart: unless-stopped
+    env_file:
+      - ../apps/client/.env
+    ports:
+      - "${CLIENT_PORT:-3000}:3000"
+    networks:
+      mynet:
+        ipv4_address: 172.20.0.11
+    depends_on:
+      server:
+        condition: service_healthy
+
+networks:
+  mynet:
+    external: true
+
+volumes:
+  server_files:

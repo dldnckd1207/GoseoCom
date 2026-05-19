@@ -1,0 +1,36 @@
+# =============================================================================
+# 루트 .gitignore — 루트 레벨 및 공통 파일 관리
+# 각 앱별 상세 규칙은 apps/{app}/.gitignore 에서 관리
+# =============================================================================
+
+# Claude — 개인 설정 및 도구
+.mcp.json
+.claude/settings.local.json
+.claude/worktrees/
+.claude/skills/*
+!.claude/skills/*-dev/
+
+# 세션 기록 (디렉토리 구조만 유지)
+.sessions/*
+!.sessions/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs (루트 레벨)
+*.log
+logs/
+
+# Environment / Secrets (루트 레벨)
+.env
+.env.*
+!.env.example

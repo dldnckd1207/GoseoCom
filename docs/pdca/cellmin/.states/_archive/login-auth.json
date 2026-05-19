@@ -1,0 +1,11 @@
+{
+  "nickname": "cellmin",
+  "feature": "login-auth",
+  "phase": "act",
+  "plan": "docs/pdca/cellmin/1-plan/2026-04-19/login-auth.md",
+  "design": "docs/pdca/cellmin/2-design/2026-04-19/login-auth.md",
+  "analysis": "docs/pdca/cellmin/3-analysis/2026-04-19/login-auth.md",
+  "score": 52,
+  "iteration": 1,
+  "completed_at": "2026-04-21"
+}

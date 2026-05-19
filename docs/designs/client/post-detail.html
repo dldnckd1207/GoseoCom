@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게시글 상세 - 해독 AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 네비게이션 바 -->
+    <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- 로고 -->
+                <a href="index.html" class="flex items-center gap-2 text-xl font-semibold text-gray-900 hover:text-blue-600 transition-colors">
+                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                    </svg>
+                    <span>해독 AI</span>
+                </a>
+
+                <!-- 네비게이션 메뉴 -->
+                <div class="flex items-center gap-1 sm:gap-2">
+                    <a href="translate.html" class="px-3 sm:px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                        번역하기
+                    </a>
+                    <a href="community.html" class="px-3 sm:px-4 py-2 rounded-lg font-medium bg-blue-600 text-white transition-colors">
+                        커뮤니티
+                    </a>
+                    <a href="library.html" class="px-3 sm:px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+                        라이브러리
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 메인 콘텐츠 -->
+    <div class="min-h-screen bg-gray-50 py-8">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- 뒤로가기 -->
+            <a href="community.html" class="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                <span>목록으로</span>
+            </a>
+
+            <!-- 게시글 내용 -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
+                <!-- 게시글 헤더 -->
+                <div class="border-b border-gray-200 px-6 py-4 bg-gray-50">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full font-medium">
+                            조선
+                        </span>
+                    </div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
+                        훈민정음 해례본 번역 관련 질문입니다
+                    </h1>
+                    <div class="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                        <div class="flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            <span>한글사랑</span>
+                        </div>
+                        <span>•</span>
+                        <span>2026.04.15</span>
+                        <span>•</span>
+                        <span>조회 124</span>
+                    </div>
+                </div>
+
+                <!-- 게시글 본문 -->
+                <div class="px-6 py-8">
+                    <div class="prose max-w-none text-gray-800 leading-relaxed">
+                        <p class="mb-4">안녕하세요. 훈민정음 해례본을 번역하던 중 몇 가지 어려운 부분이 있어 질문드립니다.</p>
+                        
+                        <p class="mb-4">특히 제자해 부분에서 "天地之道 一陰陽五行而已" 구절의 해석이 애매한데, 해독 AI가 제시한 번역이 정확한지 확인하고 싶습니다.</p>
+                        
+                        <p class="mb-4">AI 번역 결과:<br>"천지의 도는 음양과 오행일 뿐이다"</p>
+                        
+                        <p>이 부분이 맞는지, 혹시 더 정확한 번역이 있을까요? 고견 부탁드립니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 댓글 섹션 -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div class="border-b border-gray-200 px-6 py-4 bg-gray-50">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            댓글 2
+                        </h2>
+                    </div>
+                </div>
+
+                <!-- 댓글 작성 -->
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <textarea placeholder="댓글을 입력하세요..." class="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent" rows="3"></textarea>
+                    <div class="mt-3 flex justify-end">
+                        <button class="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                            댓글 작성
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 댓글 목록 -->
+                <div class="divide-y divide-gray-200">
+                    <!-- 댓글 1 -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="flex items-center gap-2 text-sm font-medium text-gray-900">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                역사학도
+                            </div>
+                            <span class="text-sm text-gray-500">•</span>
+                            <span class="text-sm text-gray-500">2026.04.15</span>
+                        </div>
+                        <p class="text-gray-800 leading-relaxed">
+                            해당 구절의 AI 번역은 정확합니다. 다만 문맥상 '천지의 이치는 음양과 오행으로 설명될 수 있다'는 의미를 담고 있다고 보시면 됩니다.
+                        </p>
+                    </div>
+
+                    <!-- 댓글 2 -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="flex items-center gap-2 text-sm font-medium text-gray-900">
+                                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                                </svg>
+                                한문전문가
+                            </div>
+                            <span class="text-sm text-gray-500">•</span>
+                            <span class="text-sm text-gray-500">2026.04.15</span>
+                        </div>
+                        <p class="text-gray-800 leading-relaxed">
+                            좋은 질문입니다. 제자해 부분은 훈민정음의 철학적 배경을 설명하는 중요한 부분인데요, AI가 제시한 번역이 직역으로는 맞습니다만, 의역하자면 '세상 만물의 원리는 결국 음양과 오행의 조화로 이루어진다'는 뜻입니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
