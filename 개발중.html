@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 번역 학습 뷰어</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Pretendard', sans-serif;
+    }
+
+    :root {
+      --bg: #f5f7fb;
+      --card: rgba(255,255,255,0.78);
+      --line: rgba(255,255,255,0.7);
+      --text: #111827;
+      --sub: #6b7280;
+      --primary: #6366f1;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(99,102,241,0.12), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(168,85,247,0.12), transparent 30%),
+        var(--bg);
+      min-height: 100vh;
+      padding: 24px;
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: auto;
+    }
+
+    .topbar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:20px;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .title-wrap h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .title-wrap p {
+      color: var(--sub);
+      margin-top: 8px;
+    }
+
+    .top-actions {
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .glass-btn {
+      border:none;
+      background: rgba(255,255,255,0.7);
+      backdrop-filter: blur(12px);
+      border:1px solid rgba(255,255,255,0.8);
+      border-radius:18px;
+      padding:12px 18px;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 8px 24px rgba(15,23,42,0.06);
+    }
+
+    .main-grid {
+      display:grid;
+      grid-template-columns: 1.4fr 0.8fr;
+      gap:22px;
+    }
+
+    .workspace {
+      display:flex;
+      flex-direction:column;
+      gap:20px;
+    }
+
+    .glass-card {
+      background: var(--card);
+      backdrop-filter: blur(20px);
+      border:1px solid var(--line);
+      border-radius:30px;
+      padding:22px;
+      box-shadow:0 18px 45px rgba(15,23,42,0.08);
+    }
+
+    .doc-viewer {
+      display:grid;
+      grid-template-columns: 1fr 0.9fr;
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .doc-image {
+      background:#fff;
+      border-radius:24px;
+      overflow:hidden;
+      min-height:700px;
+      border:1px solid #e5e7eb;
+      position:relative;
+    }
+
+    .doc-image img {
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+
+    .ai-panel {
+      background: linear-gradient(180deg,#ffffff,#f6f8ff);
+      border-radius:24px;
+      border:1px solid #e5e7eb;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+
+    .ai-header {
+      padding:20px;
+      border-bottom:1px solid #eef2ff;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    .ai-header h2 {
+      font-size:1.1rem;
+    }
+
+    .live-pill {
+      background:#e0e7ff;
+      color:#4338ca;
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:0.8rem;
+      font-weight:700;
+    }
+
+    .smart-tools {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      padding:18px;
+    }
+
+    .tool-card {
+      background:white;
+      border:1px solid #eef2ff;
+      border-radius:20px;
+      padding:16px;
+      transition:0.2s ease;
+      cursor:pointer;
+    }
+
+    .tool-card:hover {
+      transform:translateY(-2px);
+      box-shadow:0 10px 25px rgba(99,102,241,0.08);
+    }
+
+    .tool-card h4 {
+      margin-top:10px;
+      margin-bottom:6px;
+      font-size:0.95rem;
+    }
+
+    .tool-card p {
+      font-size:0.85rem;
+      color:var(--sub);
+      line-height:1.5;
+    }
+
+    .chat-feed {
+      padding:0 18px 18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      overflow-y:auto;
+    }
+
+    .message {
+      padding:14px 16px;
+      border-radius:18px;
+      line-height:1.6;
+      font-size:0.93rem;
+    }
+
+    .bot {
+      background:white;
+      border:1px solid #e5e7eb;
+    }
+
+    .user {
+      background:#4f46e5;
+      color:white;
+      align-self:flex-end;
+    }
+
+    .chat-input {
+      margin-top:auto;
+      padding:18px;
+      border-top:1px solid #eef2ff;
+      display:flex;
+      gap:10px;
+      background:white;
+    }
+
+    .chat-input input {
+      flex:1;
+      border:none;
+      background:#f3f4f6;
+      border-radius:16px;
+      padding:14px;
+      outline:none;
+    }
+
+    .send-btn {
+      border:none;
+      background:linear-gradient(135deg,#6366f1,#8b5cf6);
+      color:white;
+      border-radius:16px;
+      padding:0 18px;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .send-btn:disabled,
+    .glass-btn:disabled {
+      opacity:0.55;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    .api-status {
+      font-size:0.78rem;
+      color:#6b7280;
+      padding:0 18px 12px;
+      background:white;
+    }
+
+    .api-status.error {
+      color:#dc2626;
+    }
+
+    .api-status.success {
+      color:#047857;
+    }
+
+    .api-key-panel {
+      padding:0 18px 16px;
+      background:white;
+      display:grid;
+      grid-template-columns:1fr auto auto auto;
+      gap:8px;
+      align-items:center;
+    }
+
+    .api-key-panel input {
+      min-width:0;
+      border:none;
+      background:#f3f4f6;
+      border-radius:14px;
+      padding:12px 14px;
+      outline:none;
+      font-size:0.86rem;
+    }
+
+    .api-key-panel button {
+      border:none;
+      background:#eef2ff;
+      color:#4338ca;
+      border-radius:14px;
+      padding:11px 12px;
+      font-size:0.8rem;
+      font-weight:700;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+
+    .api-key-panel .danger {
+      background:#fee2e2;
+      color:#b91c1c;
+    }
+
+    @media(max-width:720px){
+      .api-key-panel {
+        grid-template-columns:1fr 1fr;
+      }
+
+      .api-key-panel input {
+        grid-column:1 / -1;
+      }
+    }
+
+    .memo-list {
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .memo-item {
+      background:#fff;
+      border:1px solid #eef2ff;
+      border-radius:16px;
+      padding:14px;
+      line-height:1.6;
+      color:#374151;
+      white-space:pre-wrap;
+      position:relative;
+      padding-right:54px;
+    }
+
+    .item-delete-btn {
+      position:absolute;
+      top:10px;
+      right:10px;
+      border:none;
+      background:#fee2e2;
+      color:#b91c1c;
+      border-radius:12px;
+      padding:7px 9px;
+      font-size:0.76rem;
+      font-weight:700;
+      cursor:pointer;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity 0.16s ease;
+    }
+
+    .memo-item:hover .item-delete-btn,
+    .memo-item:focus-within .item-delete-btn,
+    .comment-item:hover .item-delete-btn,
+    .comment-item:focus-within .item-delete-btn {
+      opacity:1;
+      pointer-events:auto;
+    }
+
+    .comment-actions {
+      display:flex;
+      gap:8px;
+      align-items:center;
+      margin-top:12px;
+    }
+
+    .side-column {
+      display:flex;
+      flex-direction:column;
+      gap:20px;
+      position:sticky;
+      top:24px;
+      align-self:start;
+      max-height:calc(100vh - 48px);
+      overflow-y:auto;
+      padding-right:4px;
+    }
+
+    .section-title {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:16px;
+    }
+
+    .memo-editor {
+      width:100%;
+      min-height:180px;
+      border:none;
+      background:#f8fafc;
+      border-radius:20px;
+      padding:18px;
+      resize:none;
+      outline:none;
+      line-height:1.7;
+    }
+
+    .summary-card {
+      background:linear-gradient(135deg,#6366f1,#8b5cf6);
+      color:white;
+      border-radius:24px;
+      padding:20px;
+      margin-top:18px;
+    }
+
+    .summary-card p {
+      margin-top:10px;
+      line-height:1.7;
+      opacity:0.92;
+    }
+
+    .comment-item {
+      padding:16px;
+      background:#f8fafc;
+      border-radius:18px;
+      margin-bottom:12px;
+      border:1px solid #eef2ff;
+      position:relative;
+      padding-right:54px;
+    }
+
+    .comment-editor {
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-bottom:14px;
+    }
+
+    .comment-editor input,
+    .comment-editor textarea {
+      width:100%;
+      border:none;
+      background:#f8fafc;
+      border-radius:16px;
+      padding:14px 16px;
+      outline:none;
+      line-height:1.6;
+      border:1px solid #eef2ff;
+    }
+
+    .comment-editor textarea {
+      min-height:120px;
+      resize:none;
+    }
+
+    .comment-editor-actions {
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+
+    @media(max-width:720px){
+      .comment-editor-actions {
+        width:100%;
+        justify-content:flex-end;
+      }
+    }
+
+    .floating-ai {
+      position:fixed;
+      right:28px;
+      bottom:28px;
+      z-index:999;
+    }
+
+    .floating-btn {
+      width:78px;
+      height:78px;
+      border-radius:50%;
+      border:none;
+      background:linear-gradient(135deg,#6366f1,#8b5cf6);
+      color:white;
+      font-size:2rem;
+      cursor:pointer;
+      box-shadow:0 20px 50px rgba(99,102,241,0.35);
+    }
+
+    @media(max-width:1200px){
+      .main-grid,.doc-viewer{
+        grid-template-columns:1fr;
+      }
+
+      .side-column{
+        position:relative;
+        top:0;
+      }
+    }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="title-wrap">
+        <h1>AKR20170415066200005_01_i_P4.jpg</h1>
+        <p>AI OCR · 문서 해석 · 학습 보조 워크스페이스</p>
+      </div>
+
+      <div class="top-actions">
+        <button class="glass-btn">자동 저장됨</button>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="workspace">
+        <div class="glass-card">
+          <div class="doc-viewer">
+            <div class="doc-image">
+              <img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1600&auto=format&fit=crop" alt="문서">
+
+              <div style="position:absolute;top:16px;left:16px;background:rgba(255,255,255,0.92);padding:10px 14px;border-radius:14px;font-weight:600;font-size:0.9rem;backdrop-filter:blur(10px);">
+                📜 원문 이미지
+              </div>
+            </div>
+
+            <div class="ai-panel">
+              <div class="ai-header">
+                <div>
+                  <h2>AI 학습 패널</h2>
+                  <p style="font-size:0.84rem;color:#6b7280;margin-top:5px;">OCR · 한자 분석 · 시대 해석</p>
+                </div>
+              </div>
+
+              <div style="padding:16px;border-bottom:1px solid #eef2ff;background:white;display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="glass-btn" style="padding:10px 14px;font-size:0.84rem;">한자 분석</button>
+                <button class="glass-btn" style="padding:10px 14px;font-size:0.84rem;">OCR 교정</button>
+                <button class="glass-btn" style="padding:10px 14px;font-size:0.84rem;">시대 배경</button>
+                <button class="glass-btn" style="padding:10px 14px;font-size:0.84rem;">핵심 요약</button>
+              </div>
+
+              <div style="padding:18px;display:flex;flex-direction:column;gap:16px;">
+                <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:20px;padding:18px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="font-size:1rem;">📜 원문 OCR</h3>
+                    <span style="font-size:0.8rem;color:#6366f1;font-weight:700;">자동 추출</span>
+                  </div>
+
+                  <textarea style="width:100%;min-height:120px;border:none;background:transparent;resize:none;outline:none;line-height:1.8;color:#374151;font-size:0.92rem;">宋大祖國之初王師干南海劉氏殘無作便
+師之塔鞫爲煖溫而真身爲守塔僧保美
+無所有則興修未曾宋太宗計位留</textarea>
+                </div>
+
+                <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:18px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="font-size:1rem;">📝 직역</h3>
+                  </div>
+
+                  <textarea style="width:100%;min-height:100px;border:none;background:transparent;resize:none;outline:none;line-height:1.8;color:#374151;font-size:0.92rem;" placeholder="AI 직역 결과가 표시됩니다.">송나라 태조 초기 왕사가 남해의 유씨를 정벌하였으며 탑을 지키는 승려가 진신을 보호하였다.</textarea>
+                </div>
+
+                <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;padding:18px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="font-size:1rem;">✨ 의역 / 자연어 번역</h3>
+                  </div>
+
+                  <textarea style="width:100%;min-height:120px;border:none;background:transparent;resize:none;outline:none;line-height:1.8;color:#374151;font-size:0.92rem;" placeholder="AI 의역 결과가 표시됩니다.">송나라 초기 불교 문화 속에서 탑을 관리하던 승려와 관련된 기록으로 보이며, 진신을 보호하는 역할에 대한 내용이 담겨 있습니다.</textarea>
+                </div>
+
+                <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff);border-radius:22px;padding:18px;border:1px solid #dbe4ff;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3 style="font-size:1rem;">🧠 AI 학습 분석</h3>
+                    <span style="font-size:0.78rem;color:#4338ca;font-weight:700;">AUTO</span>
+                  </div>
+
+                  <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div style="background:white;padding:12px 14px;border-radius:14px;font-size:0.9rem;line-height:1.6;">
+                      • 핵심 키워드: 真身 / 宋太宗 / 守塔僧
+                    </div>
+
+                    <div style="background:white;padding:12px 14px;border-radius:14px;font-size:0.9rem;line-height:1.6;">
+                      • 불교 문화 및 탑 관리 기록과 관련된 문서로 추정됩니다.
+                    </div>
+
+                    <div style="background:white;padding:12px 14px;border-radius:14px;font-size:0.9rem;line-height:1.6;">
+                      • 자주 등장하는 용어를 암기 카드로 변환할 수 있습니다.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="chat-feed" id="chatFeed">
+                <div class="message bot">
+                  현재 문서에서 ‘真身’은 불교 문맥상 사리 또는 고승의 육신을 의미할 가능성이 높습니다.
+                </div>
+
+                <div class="message user">
+                  이 문서 시대 배경도 설명해줘.
+                </div>
+
+                <div class="message bot">
+                  송나라 초기 불교 문화와 탑 보존 관련 기록으로 추정됩니다.
+                </div>
+              </div>
+
+              <div class="chat-input">
+                <input type="text" placeholder="문서에 대해 질문해보세요...">
+                <button class="send-btn">전송</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side-column">
+        <div class="glass-card">
+          <div class="section-title">
+            <h3>학습 메모</h3>
+            <button class="glass-btn" style="padding:10px 14px;font-size:0.84rem;">+ 메모</button>
+          </div>
+
+          <textarea class="memo-editor" placeholder="중요 번역 포인트나 헷갈리는 한자를 정리하세요."></textarea>
+
+          <div class="summary-card">
+            <h3>AI 요약</h3>
+            <p>
+              현재 문서는 불교 관련 고문서로 추정되며 탑과 승려 기록이 핵심 내용으로 보입니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div class="section-title">
+            <h3>주석 & 코멘트</h3>
+          </div>
+
+          <div class="comment-item">
+            <strong>AI 주석</strong>
+            <p style="margin-top:8px;color:#4b5563;line-height:1.7;">
+              ‘真身’은 불교 문맥에서 고승의 육신 또는 사리를 의미할 가능성이 높습니다.
+            </p>
+          </div>
+
+          <div class="comment-item">
+            <strong>사용자 메모</strong>
+            <p style="margin-top:8px;color:#4b5563;line-height:1.7;">
+              고려 후기 불교 문화와 비교해서 정리하기.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="floating-ai">
+    <div id="studyPanel" style="position:fixed;right:28px;bottom:120px;width:420px;height:82vh;background:rgba(255,255,255,0.96);backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,0.7);border-radius:32px;box-shadow:0 30px 80px rgba(15,23,42,0.18);overflow:hidden;display:none;flex-direction:column;z-index:999;">
+
+      <div style="padding:24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <h2 style="font-size:1.2rem;">AI Study Coach</h2>
+            <p style="margin-top:6px;font-size:0.9rem;opacity:0.9;">
+              혼자 학습 가능한 AI 튜터 시스템
+            </p>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.18);padding:10px 14px;border-radius:16px;font-size:0.85rem;font-weight:700;">
+            Lv.3
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:18px;overflow-x:auto;">
+          <div style="background:rgba(255,255,255,0.15);padding:12px 14px;border-radius:18px;min-width:110px;">
+            <div style="font-size:0.8rem;opacity:0.8;">연속 학습</div>
+            <strong style="font-size:1.2rem;">12일</strong>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.15);padding:12px 14px;border-radius:18px;min-width:110px;">
+            <div style="font-size:0.8rem;opacity:0.8;">암기 카드</div>
+            <strong style="font-size:1.2rem;">38개</strong>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.15);padding:12px 14px;border-radius:18px;min-width:110px;">
+            <div style="font-size:0.8rem;opacity:0.8;">학습 정확도</div>
+            <strong style="font-size:1.2rem;">89%</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;background:#f8fafc;flex:1;">
+
+        <div style="background:white;padding:18px;border-radius:24px;border:1px solid #eef2ff;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="font-size:1rem;">오늘의 학습</h3>
+            <span style="font-size:0.8rem;color:#6366f1;font-weight:700;">DAILY</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="background:#f8fafc;padding:14px;border-radius:16px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <strong>真身 단어 학습</strong>
+                <p style="font-size:0.84rem;color:#6b7280;margin-top:4px;">불교 용어 의미 익히기</p>
+              </div>
+              <button class="glass-btn" style="padding:8px 12px;font-size:0.8rem;">시작</button>
+            </div>
+
+            <div style="background:#f8fafc;padding:14px;border-radius:16px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <strong>시대 배경 퀴즈</strong>
+                <p style="font-size:0.84rem;color:#6b7280;margin-top:4px;">송나라 초기 문화</p>
+              </div>
+              <button class="glass-btn" style="padding:8px 12px;font-size:0.8rem;">도전</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:white;padding:18px;border-radius:24px;border:1px solid #eef2ff;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="font-size:1rem;">AI 암기 카드</h3>
+            <span style="font-size:0.8rem;color:#8b5cf6;font-weight:700;">FLASHCARD</span>
+          </div>
+
+          <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:22px;border-radius:22px;color:white;">
+            <div style="font-size:0.84rem;opacity:0.85;">단어 카드</div>
+            <h2 style="margin-top:10px;font-size:1.8rem;">真身</h2>
+            <p style="margin-top:14px;line-height:1.7;font-size:0.92rem;opacity:0.95;">
+              불교에서 고승의 육신 또는 사리를 의미하는 표현
+            </p>
+
+            <div style="display:flex;gap:10px;margin-top:18px;">
+              <button style="flex:1;border:none;padding:12px;border-radius:14px;background:white;color:#4f46e5;font-weight:700;cursor:pointer;">암기 완료</button>
+              <button style="flex:1;border:none;padding:12px;border-radius:14px;background:rgba(255,255,255,0.18);color:white;font-weight:700;cursor:pointer;">다시 보기</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:white;padding:18px;border-radius:24px;border:1px solid #eef2ff;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="font-size:1rem;">AI 튜터 대화</h3>
+            <span style="font-size:0.8rem;color:#10b981;font-weight:700;">ONLINE</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="background:#f8fafc;padding:14px;border-radius:16px;line-height:1.7;font-size:0.92rem;">
+              ‘守塔僧’이라는 표현은 어떤 역할을 의미할까요?
+            </div>
+
+            <div style="background:#eef2ff;padding:14px;border-radius:16px;line-height:1.7;font-size:0.92rem;align-self:flex-end;max-width:85%;">
+              탑을 관리하는 승려 같습니다.
+            </div>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:16px;">
+            <input type="text" placeholder="AI 튜터에게 답변하기..." style="flex:1;border:none;background:#f3f4f6;padding:14px;border-radius:16px;outline:none;">
+            <button class="send-btn">전송</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <button class="floating-btn" id="chatToggle">🤖</button>
+  </div>
+
+  <script>
+    const GEMINI_ENDPOINT = 'http://127.0.0.1:8787/api/gemini';
+    const STORAGE_KEYS = {
+      memos: 'viewerMemos',
+      comments: 'viewerComments',
+      study: 'viewerStudyProgress',
+      flashcards: 'viewerStudyFlashcards',
+      coachMessages: 'viewerStudyCoachMessages'
+    };
+
+    const floatingAi = document.querySelector('.floating-ai');
+    const studyPanel = document.getElementById('studyPanel');
+    const chatToggle = document.getElementById('chatToggle');
+
+    const chatFeed = document.getElementById('chatFeed') || document.querySelector('.chat-feed');
+    const chatInput = document.getElementById('chatInput') || document.querySelector('.chat-input input');
+    const sendChatBtn = document.getElementById('sendChatBtn') || document.querySelector('.chat-input .send-btn');
+    const chatInputWrap = document.querySelector('.chat-input');
+    const memoEditor = document.getElementById('memoEditor') || document.querySelector('.memo-editor');
+    const summaryCard = document.getElementById('summaryCard') || document.querySelector('.summary-card');
+    const summaryText = summaryCard?.querySelector('p');
+    const sideCards = document.querySelectorAll('.side-column .glass-card');
+    const addMemoBtn = sideCards[0]?.querySelector('.section-title button');
+    const memoryStorage = {};
+
+    if (chatFeed) chatFeed.innerHTML = '';
+    if (chatInput) chatInput.placeholder = '문서에 대해 질문해보세요...';
+    if (sendChatBtn) sendChatBtn.textContent = '전송';
+    if (addMemoBtn) addMemoBtn.textContent = '+ 메모';
+
+    const statusLine = document.createElement('div');
+    statusLine.className = 'api-status';
+    statusLine.textContent = 'Gemini API 키는 로컬 백엔드에서만 사용됩니다.';
+    if (chatInputWrap) chatInputWrap.insertAdjacentElement('afterend', statusLine);
+
+    const resetPanel = document.createElement('div');
+    resetPanel.className = 'api-key-panel';
+    resetPanel.innerHTML = `
+      <div style="font-size:0.82rem;color:#6b7280;line-height:1.5;">AI 서버: http://127.0.0.1:8787</div>
+      <button id="resetSavedDataBtn" class="danger" type="button">저장내용 초기화</button>
+    `;
+    statusLine.insertAdjacentElement('afterend', resetPanel);
+
+    let memoList = document.getElementById('memoList');
+    if (!memoList && memoEditor) {
+      memoList = document.createElement('div');
+      memoList.className = 'memo-list';
+      memoList.id = 'memoList';
+      memoEditor.insertAdjacentElement('afterend', memoList);
+    }
+
+    const commentsList = document.createElement('div');
+    commentsList.id = 'commentsList';
+    if (sideCards[1]) {
+      sideCards[1].querySelectorAll('.comment-item').forEach((item) => item.remove());
+      const commentTitle = sideCards[1].querySelector('.section-title');
+      const commentActions = document.createElement('div');
+      commentActions.className = 'comment-editor-actions';
+      commentActions.innerHTML = `
+        <button class="glass-btn" id="clearCommentBtn" type="button" style="padding:10px 14px;font-size:0.84rem;">비우기</button>
+        <button class="glass-btn" id="submitCommentBtn" type="button" style="padding:10px 14px;font-size:0.84rem;">주석 추가</button>
+      `;
+      commentTitle?.appendChild(commentActions);
+      const commentEditor = document.createElement('div');
+      commentEditor.className = 'comment-editor';
+      commentEditor.innerHTML = `
+        <input id="commentTitleInput" type="text" placeholder="주석 제목">
+        <textarea id="commentBodyInput" placeholder="문서에 대한 주석이나 코멘트를 입력하세요."></textarea>
+      `;
+      sideCards[1].appendChild(commentEditor);
+      sideCards[1].appendChild(commentsList);
+    }
+
+    const summarizeBtn = document.createElement('button');
+    summarizeBtn.className = 'glass-btn';
+    summarizeBtn.id = 'summarizeBtn';
+    summarizeBtn.textContent = 'AI 요약';
+    summarizeBtn.style.cssText = 'padding:8px 12px;font-size:0.8rem;background:rgba(255,255,255,0.22);color:white;border-color:rgba(255,255,255,0.35);';
+
+    if (summaryCard) {
+      const title = summaryCard.querySelector('h3');
+      if (title) {
+        title.textContent = 'AI 요약';
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;';
+        title.replaceWith(header);
+        header.appendChild(title);
+        header.appendChild(summarizeBtn);
+      }
+    }
+    if (summaryText) summaryText.textContent = '메모나 OCR 내용을 바탕으로 AI 요약을 생성할 수 있습니다.';
+
+    const learningList = Array.from(document.querySelectorAll('.ai-panel div[style*="flex-direction:column;gap:10px"]'))
+      .find((el) => el.querySelectorAll(':scope > div').length === 3) || null;
+
+    function readJson(key, fallback) {
+      try {
+        const raw = window.localStorage?.getItem(key) ?? memoryStorage[key];
+        return JSON.parse(raw) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function writeJson(key, value) {
+      const raw = JSON.stringify(value);
+      try {
+        window.localStorage?.setItem(key, raw);
+      } catch {
+        memoryStorage[key] = raw;
+      }
+      if (!window.localStorage) memoryStorage[key] = raw;
+    }
+
+    function removeSavedItem(key) {
+      try {
+        window.localStorage?.removeItem(key);
+      } catch {
+        delete memoryStorage[key];
+      }
+      delete memoryStorage[key];
+    }
+
+    function setStatus(message, type = '') {
+      statusLine.textContent = message;
+      statusLine.className = `api-status ${type}`.trim();
+    }
+
+    function updateApiKeyUi() {
+      setStatus('Gemini API 키는 로컬 백엔드에서만 사용됩니다.');
+    }
+
+    async function callGemini(promptText) {
+      const response = await fetch(GEMINI_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptText })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'Gemini API 요청에 실패했습니다.');
+      }
+
+      return data?.text || '응답을 생성하지 못했습니다.';
+    }
+
+    function getDocumentContext() {
+      const textareas = Array.from(document.querySelectorAll('.ai-panel textarea, .memo-editor'))
+        .map((el) => el.value.trim())
+        .filter(Boolean)
+        .join('\n\n');
+      const memos = readJson(STORAGE_KEYS.memos, []).join('\n');
+      const comments = readJson(STORAGE_KEYS.comments, []).map((item) => `${item.title}: ${item.body}`).join('\n');
+      return [textareas, memos, comments].filter(Boolean).join('\n\n') || '현재 문서 OCR/번역 텍스트가 비어 있습니다.';
+    }
+
+    function appendMessage(role, text) {
+      if (!chatFeed) return null;
+      const message = document.createElement('div');
+      message.className = `message ${role}`;
+      message.textContent = text;
+      chatFeed.appendChild(message);
+      chatFeed.scrollTop = chatFeed.scrollHeight;
+      return message;
+    }
+
+    function renderMemos() {
+      if (!memoList) return;
+      const memos = readJson(STORAGE_KEYS.memos, []);
+      memoList.innerHTML = '';
+      memos.forEach((memo, index) => {
+        const item = document.createElement('div');
+        item.className = 'memo-item';
+        const text = document.createElement('div');
+        text.textContent = memo;
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'item-delete-btn';
+        deleteBtn.type = 'button';
+        deleteBtn.textContent = '삭제';
+        deleteBtn.addEventListener('click', () => {
+          const next = readJson(STORAGE_KEYS.memos, []);
+          next.splice(index, 1);
+          writeJson(STORAGE_KEYS.memos, next);
+          renderMemos();
+        });
+        item.appendChild(text);
+        item.appendChild(deleteBtn);
+        memoList.appendChild(item);
+      });
+    }
+
+    function renderComments() {
+      const comments = readJson(STORAGE_KEYS.comments, []);
+      commentsList.innerHTML = '';
+      comments.forEach((comment, index) => {
+        const item = document.createElement('div');
+        item.className = 'comment-item';
+        item.innerHTML = `<strong></strong><p style="margin-top:8px;color:#4b5563;line-height:1.7;"></p><button class="item-delete-btn" type="button">삭제</button>`;
+        item.querySelector('strong').textContent = comment.title;
+        item.querySelector('p').textContent = comment.body;
+        item.querySelector('.item-delete-btn').addEventListener('click', () => {
+          const next = readJson(STORAGE_KEYS.comments, []);
+          next.splice(index, 1);
+          writeJson(STORAGE_KEYS.comments, next);
+          renderComments();
+        });
+        commentsList.appendChild(item);
+      });
+    }
+
+    function addCommentFromEditor() {
+      const titleInput = document.getElementById('commentTitleInput');
+      const bodyInput = document.getElementById('commentBodyInput');
+      const title = titleInput?.value.trim() || '사용자 주석';
+      const body = bodyInput?.value.trim();
+
+      if (!body) {
+        bodyInput?.focus();
+        return;
+      }
+
+      const comments = readJson(STORAGE_KEYS.comments, []);
+      comments.unshift({ title, body });
+      writeJson(STORAGE_KEYS.comments, comments);
+      if (titleInput) titleInput.value = '';
+      if (bodyInput) bodyInput.value = '';
+      renderComments();
+    }
+
+    function clearCommentEditor() {
+      const titleInput = document.getElementById('commentTitleInput');
+      const bodyInput = document.getElementById('commentBodyInput');
+      if (titleInput) titleInput.value = '';
+      if (bodyInput) {
+        bodyInput.value = '';
+        bodyInput.focus();
+      }
+    }
+
+    function renderLearningAnalysis(items) {
+      if (!learningList) return;
+      learningList.innerHTML = '';
+      items.slice(0, 3).forEach((item) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'background:white;padding:12px 14px;border-radius:14px;font-size:0.9rem;line-height:1.6;';
+        row.textContent = item;
+        learningList.appendChild(row);
+      });
+    }
+
+    async function updateLearningAnalysis(sourceText) {
+      const result = await callGemini(`다음 문서/메모를 학습자가 복습하기 좋게 한국어로 최대 3개 bullet만 요약해줘. 번호 없이 각 줄에 하나씩만 써줘.\n\n${sourceText}`);
+      const items = result.split(/\n+/).map((line) => line.replace(/^[-*0-9.\s]+/, '').trim()).filter(Boolean).slice(0, 3);
+      renderLearningAnalysis(items.length ? items : [result]);
+    }
+
+    function getDefaultStudyProgress() {
+      return {
+        xp: 0,
+        streak: 0,
+        reviewed: 0,
+        correct: 0,
+        lastStudyDate: '',
+        completedTasks: {}
+      };
+    }
+
+    function getStudyProgress() {
+      return { ...getDefaultStudyProgress(), ...readJson(STORAGE_KEYS.study, {}) };
+    }
+
+    function saveStudyProgress(progress) {
+      writeJson(STORAGE_KEYS.study, progress);
+      renderStudyCoach();
+    }
+
+    function getLevel(xp) {
+      return Math.min(99, Math.floor(Number(xp || 0) / 120) + 1);
+    }
+
+    function getLevelXp(xp) {
+      return Number(xp || 0) % 120;
+    }
+
+    function addStudyXp(amount, isCorrect = true) {
+      const progress = getStudyProgress();
+      const today = new Date().toISOString().slice(0, 10);
+      if (progress.lastStudyDate !== today) {
+        progress.streak += 1;
+        progress.lastStudyDate = today;
+      }
+      progress.xp = Math.min(11760, progress.xp + amount);
+      progress.reviewed += 1;
+      if (isCorrect) progress.correct += 1;
+      writeJson(STORAGE_KEYS.study, progress);
+      renderStudyCoach();
+    }
+
+    function getAccuracy(progress) {
+      if (!progress.reviewed) return 0;
+      return Math.round((progress.correct / progress.reviewed) * 100);
+    }
+
+    function parseJsonResponse(text, fallback) {
+      try {
+        const cleaned = text.replace(/```json|```/g, '').trim();
+        return JSON.parse(cleaned);
+      } catch {
+        return fallback;
+      }
+    }
+
+    function buildStudyCoachPanel() {
+      if (!floatingAi || !studyPanel || !chatToggle) return;
+
+      chatToggle.textContent = 'AI';
+      chatToggle.setAttribute('aria-label', 'AI 학습패널 열기');
+      studyPanel.innerHTML = `
+        <div style="padding:24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;">
+            <div>
+              <h2 style="font-size:1.2rem;">AI Study Coach</h2>
+              <p style="margin-top:6px;font-size:0.9rem;opacity:0.9;">학습 경험을 쌓아가는 문서 튜터</p>
+            </div>
+            <div id="coachLevel" style="background:rgba(255,255,255,0.18);padding:10px 14px;border-radius:16px;font-size:0.85rem;font-weight:700;">Lv.1</div>
+          </div>
+
+          <div style="height:8px;background:rgba(255,255,255,0.18);border-radius:999px;margin-top:16px;overflow:hidden;">
+            <div id="coachXpBar" style="height:100%;width:0%;background:white;border-radius:999px;"></div>
+          </div>
+          <div id="coachXpText" style="font-size:0.78rem;opacity:0.86;margin-top:8px;">0 / 120 XP</div>
+
+          <div style="display:flex;gap:10px;margin-top:18px;overflow-x:auto;">
+            <div style="background:rgba(255,255,255,0.15);padding:12px 14px;border-radius:18px;min-width:110px;">
+              <div style="font-size:0.8rem;opacity:0.8;">연속 학습</div>
+              <strong id="coachStreak" style="font-size:1.2rem;">0일</strong>
+            </div>
+            <div style="background:rgba(255,255,255,0.15);padding:12px 14px;border-radius:18px;min-width:110px;">
+              <div style="font-size:0.8rem;opacity:0.8;">복습 카드</div>
+              <strong id="coachReviewed" style="font-size:1.2rem;">0개</strong>
+            </div>
+            <div style="background:rgba(255,255,255,0.15);padding:12px 14px;border-radius:18px;min-width:110px;">
+              <div style="font-size:0.8rem;opacity:0.8;">정답률</div>
+              <strong id="coachAccuracy" style="font-size:1.2rem;">0%</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;background:#f8fafc;flex:1;">
+          <div style="background:white;padding:18px;border-radius:24px;border:1px solid #eef2ff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+              <h3 style="font-size:1rem;">오늘의 학습</h3>
+              <span style="font-size:0.8rem;color:#6366f1;font-weight:700;">DAILY</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div style="background:#f8fafc;padding:14px;border-radius:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                <div>
+                  <strong>핵심 용어 카드 만들기</strong>
+                  <p style="font-size:0.84rem;color:#6b7280;margin-top:4px;">문서에서 암기할 표현을 추출합니다.</p>
+                </div>
+                <button class="glass-btn" id="generateFlashcardsBtn" style="padding:8px 12px;font-size:0.8rem;">생성</button>
+              </div>
+              <div style="background:#f8fafc;padding:14px;border-radius:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                <div>
+                  <strong>문맥 퀴즈</strong>
+                  <p style="font-size:0.84rem;color:#6b7280;margin-top:4px;">AI가 짧은 확인 질문을 만듭니다.</p>
+                </div>
+                <button class="glass-btn" id="generateQuizBtn" style="padding:8px 12px;font-size:0.8rem;">시작</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:white;padding:18px;border-radius:24px;border:1px solid #eef2ff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+              <h3 style="font-size:1rem;">AI 암기 카드</h3>
+              <span style="font-size:0.8rem;color:#8b5cf6;font-weight:700;">FLASHCARD</span>
+            </div>
+            <div id="flashcardBox" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:22px;border-radius:22px;color:white;">
+              <div id="flashcardType" style="font-size:0.84rem;opacity:0.85;">단어 카드</div>
+              <h2 id="flashcardTerm" style="margin-top:10px;font-size:1.8rem;">준비됨</h2>
+              <p id="flashcardMeaning" style="margin-top:14px;line-height:1.7;font-size:0.92rem;opacity:0.95;">카드를 생성하거나 복습을 시작하세요.</p>
+              <div style="display:flex;gap:10px;margin-top:18px;">
+                <button id="knownCardBtn" style="flex:1;border:none;padding:12px;border-radius:14px;background:white;color:#4f46e5;font-weight:700;cursor:pointer;">암기 완료</button>
+                <button id="nextCardBtn" style="flex:1;border:none;padding:12px;border-radius:14px;background:rgba(255,255,255,0.18);color:white;font-weight:700;cursor:pointer;">다음 카드</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:white;padding:18px;border-radius:24px;border:1px solid #eef2ff;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+              <h3 style="font-size:1rem;">AI 튜터 대화</h3>
+              <span style="font-size:0.8rem;color:#10b981;font-weight:700;">ONLINE</span>
+            </div>
+            <div id="coachFeed" style="display:flex;flex-direction:column;gap:12px;max-height:220px;overflow-y:auto;"></div>
+            <div style="display:flex;gap:10px;margin-top:16px;">
+              <input id="coachInput" type="text" placeholder="AI 튜터에게 질문하기..." style="flex:1;border:none;background:#f3f4f6;padding:14px;border-radius:16px;outline:none;">
+              <button class="send-btn" id="coachSendBtn">전송</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      chatToggle.addEventListener('click', () => {
+        const current = window.getComputedStyle(studyPanel).display;
+        studyPanel.style.display = current === 'none' ? 'flex' : 'none';
+      });
+    }
+
+    function renderStudyCoach() {
+      const progress = getStudyProgress();
+      const level = getLevel(progress.xp);
+      const levelXp = getLevelXp(progress.xp);
+      const pct = level >= 99 ? 100 : Math.round((levelXp / 120) * 100);
+      const cards = readJson(STORAGE_KEYS.flashcards, []);
+
+      const levelEl = document.getElementById('coachLevel');
+      const barEl = document.getElementById('coachXpBar');
+      const xpTextEl = document.getElementById('coachXpText');
+      const streakEl = document.getElementById('coachStreak');
+      const reviewedEl = document.getElementById('coachReviewed');
+      const accuracyEl = document.getElementById('coachAccuracy');
+
+      if (levelEl) levelEl.textContent = `Lv.${level}`;
+      if (barEl) barEl.style.width = `${pct}%`;
+      if (xpTextEl) xpTextEl.textContent = level >= 99 ? 'MAX LEVEL' : `${levelXp} / 120 XP`;
+      if (streakEl) streakEl.textContent = `${progress.streak}일`;
+      if (reviewedEl) reviewedEl.textContent = `${cards.length}개`;
+      if (accuracyEl) accuracyEl.textContent = `${getAccuracy(progress)}%`;
+      renderFlashcard();
+      renderCoachMessages();
+    }
+
+    function renderFlashcard() {
+      const cards = readJson(STORAGE_KEYS.flashcards, []);
+      const active = cards[0] || { term: '준비됨', meaning: '카드를 생성하거나 복습을 시작하세요.', type: '단어 카드' };
+      const typeEl = document.getElementById('flashcardType');
+      const termEl = document.getElementById('flashcardTerm');
+      const meaningEl = document.getElementById('flashcardMeaning');
+      if (typeEl) typeEl.textContent = active.type || '단어 카드';
+      if (termEl) termEl.textContent = active.term || '준비됨';
+      if (meaningEl) meaningEl.textContent = active.meaning || '카드를 생성하거나 복습을 시작하세요.';
+    }
+
+    function rotateFlashcard(xp, isCorrect, emptyMessage) {
+      const cards = readJson(STORAGE_KEYS.flashcards, []);
+      if (!cards.length) {
+        setStatus(emptyMessage, 'error');
+        pushCoachMessage('bot', emptyMessage);
+        return;
+      }
+
+      if (cards.length > 1) {
+        cards.push(cards.shift());
+        writeJson(STORAGE_KEYS.flashcards, cards);
+      }
+
+      addStudyXp(xp, isCorrect);
+      renderFlashcard();
+      setStatus(isCorrect ? '암기 완료로 기록했습니다.' : '다음 카드로 이동했습니다.', 'success');
+    }
+
+    function renderCoachMessages() {
+      const feed = document.getElementById('coachFeed');
+      if (!feed) return;
+      const messages = readJson(STORAGE_KEYS.coachMessages, [
+        { role: 'bot', text: '문서 내용으로 카드, 퀴즈, 설명을 만들어 드릴게요.' }
+      ]);
+      feed.innerHTML = '';
+      messages.slice(-12).forEach((message) => {
+        const row = document.createElement('div');
+        row.style.cssText = message.role === 'user'
+          ? 'background:#eef2ff;padding:14px;border-radius:16px;line-height:1.7;font-size:0.92rem;align-self:flex-end;max-width:85%;'
+          : 'background:#f8fafc;padding:14px;border-radius:16px;line-height:1.7;font-size:0.92rem;';
+        row.textContent = message.text;
+        feed.appendChild(row);
+      });
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    function pushCoachMessage(role, text) {
+      const messages = readJson(STORAGE_KEYS.coachMessages, []);
+      messages.push({ role, text });
+      writeJson(STORAGE_KEYS.coachMessages, messages.slice(-30));
+      renderCoachMessages();
+    }
+
+    async function generateFlashcards() {
+      const button = document.getElementById('generateFlashcardsBtn');
+      if (button) button.disabled = true;
+      setStatus('AI 암기 카드를 생성하는 중입니다...');
+      try {
+        const result = await callGemini(`다음 문서 내용을 기반으로 한국어 학습용 암기 카드 5개를 만들어줘. 반드시 JSON 배열만 반환해줘. 형식: [{"term":"용어","meaning":"뜻/문맥","type":"단어 카드"}]\n\n${getDocumentContext()}`);
+        const cards = parseJsonResponse(result, []);
+        const normalized = Array.isArray(cards)
+          ? cards.map((card) => ({
+              term: String(card.term || '').trim(),
+              meaning: String(card.meaning || '').trim(),
+              type: String(card.type || '단어 카드').trim()
+            })).filter((card) => card.term && card.meaning).slice(0, 5)
+          : [];
+        if (!normalized.length) throw new Error('카드를 만들 수 있는 응답이 없습니다.');
+        writeJson(STORAGE_KEYS.flashcards, normalized);
+        addStudyXp(20, true);
+        setStatus('AI 암기 카드가 생성되었습니다.', 'success');
+      } catch (error) {
+        setStatus(error.message, 'error');
+      } finally {
+        if (button) button.disabled = false;
+        renderStudyCoach();
+      }
+    }
+
+    async function generateQuiz() {
+      const button = document.getElementById('generateQuizBtn');
+      if (button) button.disabled = true;
+      setStatus('AI 문맥 퀴즈를 생성하는 중입니다...');
+      try {
+        const quiz = await callGemini(`다음 문서 내용을 바탕으로 학습자가 답할 수 있는 짧은 퀴즈 1개와 모범 답안을 한국어로 만들어줘. 3문장 이내.\n\n${getDocumentContext()}`);
+        pushCoachMessage('bot', quiz);
+        addStudyXp(15, true);
+        setStatus('AI 문맥 퀴즈가 준비되었습니다.', 'success');
+      } catch (error) {
+        setStatus(error.message, 'error');
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
+    async function sendCoachMessage() {
+      const input = document.getElementById('coachInput');
+      const button = document.getElementById('coachSendBtn');
+      const question = input?.value.trim();
+      if (!question) return;
+      input.value = '';
+      pushCoachMessage('user', question);
+      if (button) button.disabled = true;
+      try {
+        const answer = await callGemini(`너는 문서 학습 코치야. 사용자의 수준에 맞춰 친절하지만 짧게 한국어로 답해줘.\n\n[문서/학습자료]\n${getDocumentContext()}\n\n[질문]\n${question}`);
+        pushCoachMessage('bot', answer);
+        addStudyXp(10, true);
+      } catch (error) {
+        pushCoachMessage('bot', error.message);
+      } finally {
+        if (button) button.disabled = false;
+        input?.focus();
+      }
+    }
+
+    function bindStudyCoachEvents() {
+      document.getElementById('generateFlashcardsBtn')?.addEventListener('click', generateFlashcards);
+      document.getElementById('generateQuizBtn')?.addEventListener('click', generateQuiz);
+      document.getElementById('coachSendBtn')?.addEventListener('click', sendCoachMessage);
+      document.getElementById('coachInput')?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') sendCoachMessage();
+      });
+      document.getElementById('knownCardBtn')?.addEventListener('click', () => {
+        rotateFlashcard(8, true, '먼저 AI 암기 카드를 생성해 주세요.');
+      });
+      document.getElementById('nextCardBtn')?.addEventListener('click', () => {
+        rotateFlashcard(3, false, '넘길 카드가 없습니다. 먼저 AI 암기 카드를 생성해 주세요.');
+      });
+    }
+
+    document.getElementById('resetSavedDataBtn')?.addEventListener('click', () => {
+      const ok = confirm('메모, 주석, 학습기록, 카드, 튜터 대화를 모두 삭제할까요?');
+      if (!ok) return;
+      [
+        STORAGE_KEYS.memos,
+        STORAGE_KEYS.comments,
+        STORAGE_KEYS.study,
+        STORAGE_KEYS.flashcards,
+        STORAGE_KEYS.coachMessages
+      ].forEach((key) => removeSavedItem(key));
+      renderMemos();
+      renderComments();
+      renderLearningAnalysis(['AI 학습분석을 실행하면 최대 3개 요약이 표시됩니다.']);
+      renderStudyCoach();
+      setStatus('저장된 메모, 주석, 학습기록을 초기화했습니다.', 'success');
+    });
+
+    async function sendChat() {
+      const question = chatInput?.value.trim();
+      if (!question) return;
+
+      appendMessage('user', question);
+      chatInput.value = '';
+      sendChatBtn.disabled = true;
+      setStatus('Gemini가 답변을 생성하는 중입니다...');
+      const pending = appendMessage('bot', '답변 생성 중...');
+
+      try {
+        const answer = await callGemini(`너는 OCR 문서 번역/학습 보조 챗봇이야. 한국어로 간결하고 정확하게 답해줘.\n\n[문서/메모]\n${getDocumentContext()}\n\n[사용자 질문]\n${question}`);
+        if (pending) pending.textContent = answer;
+        setStatus('답변이 완료되었습니다.', 'success');
+      } catch (error) {
+        if (pending) pending.textContent = error.message;
+        setStatus(error.message, 'error');
+      } finally {
+        sendChatBtn.disabled = false;
+        chatInput?.focus();
+      }
+    }
+
+    addMemoBtn?.addEventListener('click', () => {
+      const text = memoEditor?.value.trim();
+      if (!text) {
+        memoEditor?.focus();
+        return;
+      }
+      const memos = readJson(STORAGE_KEYS.memos, []);
+      memos.unshift(text);
+      writeJson(STORAGE_KEYS.memos, memos);
+      memoEditor.value = '';
+      renderMemos();
+    });
+
+    document.getElementById('submitCommentBtn')?.addEventListener('click', () => {
+      addCommentFromEditor();
+    });
+    document.getElementById('clearCommentBtn')?.addEventListener('click', () => {
+      clearCommentEditor();
+    });
+    document.getElementById('commentBodyInput')?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        addCommentFromEditor();
+      }
+    });
+
+    summarizeBtn.addEventListener('click', async () => {
+      summarizeBtn.disabled = true;
+      setStatus('AI 요약을 생성하는 중입니다...');
+      try {
+        const context = getDocumentContext();
+        const summary = await callGemini(`다음 OCR/번역/메모 내용을 한국어 2~3문장으로 요약해줘.\n\n${context}`);
+        if (summaryText) summaryText.textContent = summary;
+        await updateLearningAnalysis(context);
+        setStatus('AI 요약과 학습분석이 완료되었습니다.', 'success');
+      } catch (error) {
+        setStatus(error.message, 'error');
+      } finally {
+        summarizeBtn.disabled = false;
+      }
+    });
+
+    sendChatBtn?.addEventListener('click', sendChat);
+    chatInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') sendChat();
+    });
+
+    updateApiKeyUi();
+    renderMemos();
+    renderComments();
+    renderLearningAnalysis(['AI 학습분석을 실행하면 최대 3개 요약이 표시됩니다.']);
+    buildStudyCoachPanel();
+    bindStudyCoachEvents();
+    renderStudyCoach();
+  </script>
+</body>
+</html>
