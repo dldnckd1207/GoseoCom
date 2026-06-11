@@ -1,5 +1,6 @@
 """Auth 서비스 — OAuth UPSERT, 토큰 발급/갱신/로그아웃"""
 
+import logging
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, Request, status
@@ -16,6 +17,8 @@ from app.core.security import (
     hash_token,
 )
 from app.core.user.models import User, UserOAuth, UserToken
+
+logger = logging.getLogger(__name__)
 
 ROTATION_GRACE_SECONDS = 30
 
@@ -34,13 +37,14 @@ class AuthService:
         name: str,
         profile_image_url: str | None,
         request: Request,
+        email_verified: bool = False,
     ) -> tuple[str, str]:
         ip_address = request.client.host if request.client else "unknown"
         user_agent = request.headers.get("user-agent", "")
 
         try:
             user = await self._upsert_user_and_oauth(
-                provider, provider_user_id, email, name, profile_image_url
+                provider, provider_user_id, email, name, profile_image_url, email_verified
             )
 
             if user.del_yn and user.left_at:
@@ -96,9 +100,12 @@ class AuthService:
         except HTTPException:
             await self.db.rollback()
             raise
-        except Exception as e:
+        except Exception:
+            # 예외 원문은 DB(fail_reason)에 저장하지 않고 표준 코드만 기록한다(점검보고서 #9).
+            # 상세 원인은 서버 로그로만 남긴다(PII/내부 구현 노출 방지).
+            logger.exception("로그인 처리 중 예기치 못한 오류 (provider=%s)", provider)
             await self.db.rollback()
-            await self._log(None, provider, LoginResult.FAIL, ip_address, str(e))
+            await self._log(None, provider, LoginResult.FAIL, ip_address, "INTERNAL_ERROR")
             raise
 
     async def _upsert_user_and_oauth(
@@ -108,27 +115,32 @@ class AuthService:
         email: str | None,
         name: str,
         profile_image_url: str | None,
+        email_verified: bool = False,
     ) -> User:
         oauth = await self.repo.get_oauth(provider, provider_user_id)
+        # 주 로그인 경로는 (provider, provider_user_id) 매칭 — 이메일 미사용.
+        # 이메일 기반 기존 계정 연동은 검증된 신뢰 제공자(email_verified)인 경우에만 허용한다.
+        # (점검보고서 #3: 미검증 이메일 가장으로 인한 계정 탈취 방지)
         user = (
             await self.repo.get_user_by_id(oauth.user_id)
             if oauth
-            # 이메일이 있을 때만 email로 계정 연동 시도 (없으면 None → 신규 생성)
-            else (await self.repo.get_user_by_email(email) if email else None)
+            else (await self.repo.get_user_by_email(email) if (email and email_verified) else None)
         )
         now = datetime.now(UTC)
 
         if not user:
             user_id = await next_id("USR_", self.db)
-            # TODO(#106): 카카오 비즈앱 전환 후 이메일 필수 검증 추가
-            # 현재 이메일 미동의 사용자는 user_id 기반 placeholder 사용
-            actual_email = email if email else f"{user_id}@haedok-ai.com"
+            # 검증된 이메일만 계정 식별자로 저장. 미검증/미동의 시 user_id 기반 placeholder를
+            # 사용해 이메일 선점(squatting)으로 인한 추후 연동 탈취를 차단한다.
+            actual_email = email if (email and email_verified) else f"{user_id}@haedok-ai.com"
             user = User(
                 id=user_id,
                 email=actual_email,
                 name=name,
                 profile_image_url=profile_image_url,
-                user_level=self._resolve_user_level(email),
+                # 이메일 기반 자동 ADMIN 승격 제거(점검보고서 #3). 항상 USER로 생성하고,
+                # 관리자 지정은 시드 마이그레이션/SYSTEM_ADMIN 수동 변경으로 일원화한다.
+                user_level=UserRole.USER.value,
                 joined_at=now,
                 created_at=now,
                 created_by=user_id,
@@ -136,10 +148,6 @@ class AuthService:
                 updated_by=user_id,
             )
             await self.repo.create_user(user)
-        elif self._should_promote_to_initial_admin(user, email):
-            user.user_level = UserRole.ADMIN.value
-            user.updated_at = now
-            user.updated_by = user.id
 
         if not oauth:
             await self.repo.create_oauth(
@@ -157,16 +165,6 @@ class AuthService:
             )
 
         return user
-
-    def _resolve_user_level(self, email: str | None) -> int:
-        if email and email in settings.admin_emails:
-            return UserRole.ADMIN.value
-        return UserRole.USER.value
-
-    def _should_promote_to_initial_admin(self, user: User, email: str | None) -> bool:
-        return bool(
-            email and email in settings.admin_emails and user.user_level < UserRole.ADMIN.value
-        )
 
     async def refresh(self, refresh_jwt: str, request: Request) -> tuple[str, str]:
         token = await self.repo.get_token_by_hash(hash_token(refresh_jwt))
@@ -226,10 +224,8 @@ class AuthService:
 
     async def logout(self, refresh_jwt: str | None) -> None:
         if refresh_jwt:
-            token = await self.repo.get_token_by_hash(hash_token(refresh_jwt))
-            if token and not token.is_revoked:
-                await self.repo.revoke_token(token)
-                await self.db.commit()
+            await self.repo.revoke_tokens_by_hash(hash_token(refresh_jwt))
+            await self.db.commit()
 
     async def _log(
         self,

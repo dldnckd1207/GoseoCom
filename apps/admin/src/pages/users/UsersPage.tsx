@@ -203,6 +203,7 @@ export function UsersPage() {
         users={data?.items ?? []}
         isLoading={usersQuery.isLoading}
         isError={usersQuery.isError}
+        rowNumberStart={(data?.total ?? 0) - (page - 1) * (data?.size ?? 10)}
         onRetry={() => void usersQuery.refetch()}
         onEdit={handleEdit}
       />

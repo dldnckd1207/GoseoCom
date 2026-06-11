@@ -1,24 +1,16 @@
-import { useState } from "react";
+import { Navigate, useLocation } from "react-router";
 
-import { Navigate, useLocation, useNavigate } from "react-router";
+import { ShieldCheck } from "lucide-react";
 
-import { KeyRound, ShieldCheck } from "lucide-react";
-
-import { authApi, OAUTH_BASE_URL } from "~/features/auth/api/authApi";
+import { OAUTH_BASE_URL } from "~/features/auth/api/authApi";
 import { useAdminSession } from "~/features/auth/hooks/useAdminSession";
 
 import { Button } from "~/shared/ui/button";
 import { ThemeToggle } from "~/shared/ui/ThemeToggle";
 
-import type { FormEvent } from "react";
-
 export function LoginPage() {
   const location = useLocation();
-  const navigate = useNavigate();
   const session = useAdminSession();
-  const [devUserId, setDevUserId] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isDevSubmitting, setIsDevSubmitting] = useState(false);
 
   const redirectTo =
     typeof location.state === "object" &&
@@ -37,28 +29,6 @@ export function LoginPage() {
 
   if (session.isAdmin) {
     return <Navigate to={redirectTo} replace />;
-  }
-
-  async function handleDevLogin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!devUserId.trim()) return;
-
-    setIsDevSubmitting(true);
-    setErrorMessage("");
-
-    try {
-      await authApi.devToken(devUserId.trim());
-      const user = await authApi.me();
-      if (user.user_level < 70) {
-        setErrorMessage("관리자 권한이 없는 계정입니다.");
-        return;
-      }
-      navigate(redirectTo, { replace: true });
-    } catch {
-      setErrorMessage("로그인에 실패했습니다. 사용자 ID와 서버 상태를 확인해주세요.");
-    } finally {
-      setIsDevSubmitting(false);
-    }
   }
 
   return (
@@ -94,27 +64,6 @@ export function LoginPage() {
           </Button>
         </div>
 
-        <div className="my-6 h-px bg-border" />
-
-        <form className="space-y-3" onSubmit={handleDevLogin}>
-          <label className="block text-sm font-medium" htmlFor="dev-user-id">
-            개발용 사용자 ID
-          </label>
-          <div className="flex gap-2">
-            <input
-              id="dev-user-id"
-              value={devUserId}
-              onChange={(event) => setDevUserId(event.target.value)}
-              className="h-10 min-w-0 flex-1 rounded-md border border-border bg-secondary px-3 text-sm outline-none focus:ring-3 focus:ring-ring/30"
-              placeholder="USR_00000001"
-            />
-            <Button type="submit" disabled={isDevSubmitting}>
-              <KeyRound />
-              발급
-            </Button>
-          </div>
-          {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-        </form>
       </section>
     </main>
   );

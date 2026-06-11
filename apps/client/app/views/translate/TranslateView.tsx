@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Link, useFetcher, useLoaderData } from 'react-router';
 
-import { Check, Loader2, Pencil, Sparkles, Upload } from 'lucide-react';
+import { BookOpen, Check, ExternalLink, Loader2, Pencil, Sparkles, Upload } from 'lucide-react';
 
 import { ApiError, apiClient } from '~/shared/api/client';
 import { API_ENDPOINTS } from '~/shared/api/endpoints';
@@ -256,174 +256,193 @@ export function TranslateView() {
 
     return (
         <div className="page-wrapper py-8">
-            <div className="container-main">
-                <div className="mb-6">
-                    <h1 className="mb-2 text-[length:var(--text-page-title-mobile)] font-bold text-gray-900 lg:text-[length:var(--text-page-title)]">고서 번역</h1>
-                    <p className="text-gray-600">AI 기반 자동 번역으로 고서를 현대 한국어로 변환하세요</p>
-                </div>
+            <div className="container-main flex gap-6">
+                <div className="min-w-0 flex-1">
+                    <div className="mb-6">
+                        <h1 className="mb-2 text-[length:var(--text-page-title-mobile)] font-bold text-gray-900 lg:text-[length:var(--text-page-title)]">고서 번역</h1>
+                        <p className="text-gray-600">AI 기반 자동 번역으로 고서를 현대 한국어로 변환하세요</p>
+                    </div>
 
-                {/* 번역 제목 — OCR 완료 후 표시 */}
-                {bookTitle && (
-                    <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                        {editingTitle ? (
-                            <input
-                                ref={titleInputRef}
-                                type="text"
-                                value={titleValue}
-                                onChange={(e) => setTitleValue(e.target.value)}
-                                onBlur={handleTitleSave}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleTitleSave();
-                                    if (e.key === 'Escape') {
-                                        setTitleValue(bookTitle);
-                                        setEditingTitle(false);
+                    {/* 번역 제목 — OCR 완료 후 표시 */}
+                    {bookTitle && (
+                        <div className="mb-4 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                            {editingTitle ? (
+                                <input
+                                    ref={titleInputRef}
+                                    type="text"
+                                    value={titleValue}
+                                    onChange={(e) => setTitleValue(e.target.value)}
+                                    onBlur={handleTitleSave}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleTitleSave();
+                                        if (e.key === 'Escape') {
+                                            setTitleValue(bookTitle);
+                                            setEditingTitle(false);
+                                        }
+                                    }}
+                                    className="flex-1 border-b-2 border-blue-500 bg-transparent text-sm font-medium text-gray-800 outline-none"
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingTitle(true)}
+                                    className="flex flex-1 items-center gap-2 text-left text-sm font-medium text-gray-800 hover:text-gray-900 transition-colors min-w-0"
+                                >
+                                    {titleSaved
+                                        ? <Check className="w-4 h-4 text-green-500 shrink-0" aria-hidden />
+                                        : <Pencil className="w-4 h-4 text-gray-400 shrink-0" aria-hidden />
                                     }
-                                }}
-                                className="flex-1 border-b-2 border-blue-500 bg-transparent text-sm font-medium text-gray-800 outline-none"
+                                    <span className="truncate">{bookTitle}</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 이미지 업로드 */}
+                    <div className="mb-4 rounded-lg border border-gray-200 bg-white shadow-sm p-4">
+                        <label className={`flex items-center justify-center gap-3 w-full border-2 border-dashed rounded-lg p-6 text-center transition-colors ${uploadDisabled ? 'border-gray-200 opacity-50 cursor-not-allowed' : 'border-gray-300 cursor-pointer hover:border-blue-400'}`}>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                disabled={uploadDisabled}
+                                onChange={handleFileChange}
+                                className="sr-only"
+                                aria-label="고서 이미지 업로드"
                             />
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={() => setEditingTitle(true)}
-                                className="flex flex-1 items-center gap-2 text-left text-sm font-medium text-gray-800 hover:text-gray-900 transition-colors min-w-0"
-                            >
-                                {titleSaved
-                                    ? <Check className="w-4 h-4 text-green-500 shrink-0" aria-hidden />
-                                    : <Pencil className="w-4 h-4 text-gray-400 shrink-0" aria-hidden />
-                                }
-                                <span className="truncate">{bookTitle}</span>
-                            </button>
+                            {(isUploading || isOcrLoading) ? (
+                                <>
+                                    <Loader2 className="w-6 h-6 text-blue-500 animate-spin shrink-0" aria-hidden />
+                                    <span className="font-medium text-gray-700">
+                                        {isUploading ? '업로드 중...' : '이미지 인식 중...'}
+                                    </span>
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="w-6 h-6 text-gray-400 shrink-0" aria-hidden />
+                                    <span className="font-medium text-gray-700">
+                                        이미지를 드래그하거나 클릭하여 업로드 — PNG, JPG (최대 10MB)
+                                    </span>
+                                </>
+                            )}
+                        </label>
+                        {fileError && <p className="mt-2 text-sm text-red-500">{fileError}</p>}
+                        {fetcherError && (
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                                <p className="text-sm text-red-500">{fetcherError}</p>
+                                {isRateLimited && (
+                                    <Link to="/history" className="shrink-0 text-sm font-medium text-blue-600 hover:underline">
+                                        번역 이력 보기 →
+                                    </Link>
+                                )}
+                            </div>
                         )}
                     </div>
-                )}
 
-                {/* 이미지 업로드 */}
-                <div className="mb-4 rounded-lg border border-gray-200 bg-white shadow-sm p-4">
-                    <label className={`flex items-center justify-center gap-3 w-full border-2 border-dashed rounded-lg p-6 text-center transition-colors ${uploadDisabled ? 'border-gray-200 opacity-50 cursor-not-allowed' : 'border-gray-300 cursor-pointer hover:border-blue-400'}`}>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            disabled={uploadDisabled}
-                            onChange={handleFileChange}
-                            className="sr-only"
-                            aria-label="고서 이미지 업로드"
-                        />
-                        {(isUploading || isOcrLoading) ? (
-                            <>
-                                <Loader2 className="w-6 h-6 text-blue-500 animate-spin shrink-0" aria-hidden />
-                                <span className="font-medium text-gray-700">
-                                    {isUploading ? '업로드 중...' : '이미지 인식 중...'}
-                                </span>
-                            </>
-                        ) : (
-                            <>
-                                <Upload className="w-6 h-6 text-gray-400 shrink-0" aria-hidden />
-                                <span className="font-medium text-gray-700">
-                                    이미지를 드래그하거나 클릭하여 업로드 — PNG, JPG (최대 10MB)
-                                </span>
-                            </>
-                        )}
-                    </label>
-                    {fileError && <p className="mt-2 text-sm text-red-500">{fileError}</p>}
-                    {fetcherError && (
-                        <div className="mt-2 flex items-center justify-between gap-3">
-                            <p className="text-sm text-red-500">{fetcherError}</p>
-                            {isRateLimited && (
-                                <Link to="/history" className="shrink-0 text-sm font-medium text-blue-600 hover:underline">
-                                    번역 이력 보기 →
-                                </Link>
+                    {/* 원문 + 번역 결과 2열 */}
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        {/* 좌: 원문 */}
+                        <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                            <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
+                                <span className="text-sm font-semibold text-gray-700">원문</span>
+                                <button
+                                    type="button"
+                                    onClick={handleTranslate}
+                                    disabled={translateDisabled}
+                                    className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isTranslating
+                                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />번역 중...</>
+                                        : <><Sparkles className="w-3.5 h-3.5" aria-hidden />AI 번역</>
+                                    }
+                                </button>
+                            </div>
+                            <textarea
+                                value={ocrText}
+                                onChange={(e) => setOcrText(e.target.value)}
+                                disabled={isTranslating || isOcrLoading || isUploading}
+                                placeholder={isOcrLoading || isUploading
+                                    ? '이미지를 인식하는 중입니다...'
+                                    : '번역할 원문을 입력하거나 이미지를 업로드하세요'}
+                                className="w-full resize-none p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                                rows={14}
+                            />
+                            {translateError && (
+                                <p className="px-4 pb-3 text-sm text-red-500">{translateError}</p>
                             )}
+                        </div>
+
+                        {/* 우: 번역 결과 */}
+                        <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+                            <div className="flex items-center border-b border-gray-200 bg-gray-50 px-4 py-3 gap-2">
+                                {(['literal', 'interpretive'] as const).map((tab) => (
+                                    <button
+                                        key={tab}
+                                        type="button"
+                                        onClick={() => setActiveTab(tab)}
+                                        className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                                    >
+                                        {tab === 'literal' ? '직역' : '의역'}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="p-4 min-h-[13.5rem]">
+                                {stage.step === 'done' ? (
+                                    <pre className="text-sm leading-relaxed text-gray-800 whitespace-pre-wrap font-sans break-words">
+                                        {activeTab === 'literal' ? stage.literal : stage.interpretive}
+                                    </pre>
+                                ) : isTranslating ? (
+                                    <div className="flex h-32 items-center justify-center gap-2 text-gray-400">
+                                        <Loader2 className="w-5 h-5 animate-spin" aria-hidden />
+                                        <span className="text-sm">번역 중...</span>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-400">
+                                        {showEditor
+                                            ? 'AI 번역 버튼을 클릭하면 결과가 여기에 표시됩니다.'
+                                            : '원문을 입력하거나 이미지를 업로드 후 AI 번역을 실행하세요.'}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 완료 후 액션 */}
+                    {stage.step === 'done' && (
+                        <div className="mt-4 flex items-center justify-center gap-3">
+                            <Link
+                                to={`/history/${stage.bookId}`}
+                                className="px-6 py-2 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors"
+                            >
+                                번역 이력 보기
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="px-6 py-2 text-sm font-medium text-blue-600 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
+                            >
+                                새로 번역하기
+                            </button>
                         </div>
                     )}
                 </div>
 
-                {/* 원문 + 번역 결과 2열 */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {/* 좌: 원문 */}
-                    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-                        <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
-                            <span className="text-sm font-semibold text-gray-700">원문</span>
-                            <button
-                                type="button"
-                                onClick={handleTranslate}
-                                disabled={translateDisabled}
-                                className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {isTranslating
-                                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />번역 중...</>
-                                    : <><Sparkles className="w-3.5 h-3.5" aria-hidden />AI 번역</>
-                                }
-                            </button>
-                        </div>
-                        <textarea
-                            value={ocrText}
-                            onChange={(e) => setOcrText(e.target.value)}
-                            disabled={isTranslating || isOcrLoading || isUploading}
-                            placeholder={isOcrLoading || isUploading
-                                ? '이미지를 인식하는 중입니다...'
-                                : '번역할 원문을 입력하거나 이미지를 업로드하세요'}
-                            className="w-full resize-none p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                            rows={14}
-                        />
-                        {translateError && (
-                            <p className="px-4 pb-3 text-sm text-red-500">{translateError}</p>
-                        )}
-                    </div>
-
-                    {/* 우: 번역 결과 */}
-                    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-                        <div className="flex items-center border-b border-gray-200 bg-gray-50 px-4 py-3 gap-2">
-                            {(['literal', 'interpretive'] as const).map((tab) => (
-                                <button
-                                    key={tab}
-                                    type="button"
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${activeTab === tab ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
-                                >
-                                    {tab === 'literal' ? '직역' : '의역'}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="p-4 min-h-[13.5rem]">
-                            {stage.step === 'done' ? (
-                                <pre className="text-sm leading-relaxed text-gray-800 whitespace-pre-wrap font-sans break-words">
-                                    {activeTab === 'literal' ? stage.literal : stage.interpretive}
-                                </pre>
-                            ) : isTranslating ? (
-                                <div className="flex h-32 items-center justify-center gap-2 text-gray-400">
-                                    <Loader2 className="w-5 h-5 animate-spin" aria-hidden />
-                                    <span className="text-sm">번역 중...</span>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-gray-400">
-                                    {showEditor
-                                        ? 'AI 번역 버튼을 클릭하면 결과가 여기에 표시됩니다.'
-                                        : '원문을 입력하거나 이미지를 업로드 후 AI 번역을 실행하세요.'}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 완료 후 액션 */}
-                {stage.step === 'done' && (
-                    <div className="mt-4 flex items-center justify-center gap-3">
-                        <Link
-                            to={`/history/${stage.bookId}`}
-                            className="px-6 py-2 text-sm font-medium text-white rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors"
+                {/* RNB — 참고자료 추천 퀵메뉴 (스크롤 시 화면 세로 중앙 유지, 태블릿/모바일 미노출) */}
+                <aside className="hidden w-64 shrink-0 xl:block">
+                    <div className="sticky top-1/2 -translate-y-1/2 rounded-lg border border-gray-200 bg-white p-4 shadow-md">
+                        <h2 className="mb-3 text-sm font-semibold text-gray-900">참고자료 추천</h2>
+                        <a
+                            href="http://aigoseo.or.kr/home/intro.do"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 rounded-lg border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                         >
-                            번역 이력 보기
-                        </Link>
-                        <button
-                            type="button"
-                            onClick={handleReset}
-                            className="px-6 py-2 text-sm font-medium text-blue-600 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors"
-                        >
-                            새로 번역하기
-                        </button>
+                            <BookOpen className="h-4 w-4 shrink-0" aria-hidden />
+                            고서번역
+                            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-blue-400" aria-hidden />
+                        </a>
                     </div>
-                )}
+                </aside>
             </div>
         </div>
     );

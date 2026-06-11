@@ -163,7 +163,7 @@ export function PostsPage() {
         isLoading={postsQuery.isLoading}
         isError={postsQuery.isError}
         isPending={isPending}
-        startIndex={(page - 1) * (data?.size ?? 10)}
+        rowNumberStart={(data?.total ?? 0) - (page - 1) * (data?.size ?? 10)}
         onRetry={() => void postsQuery.refetch()}
         onDetail={(postId) => setDetailPostId(postId)}
         onDelete={handleDelete}

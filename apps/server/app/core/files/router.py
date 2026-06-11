@@ -1,6 +1,8 @@
 """파일 서빙/업로드 라우터"""
 
+import re
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -16,6 +18,21 @@ from app.db.session import get_db
 router = APIRouter(tags=["files"])
 
 _MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB
+
+# 인라인 렌더를 허용할 안전한 MIME (그 외에는 강제 다운로드 — 저장형 XSS 차단, 점검보고서 #4)
+_INLINE_SAFE_MIME = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "application/pdf",
+}
+
+
+def _sanitize_filename(name: str) -> str:
+    """Content-Disposition 헤더 주입 방지 — 개행/제어문자 제거 (점검보고서 #10)."""
+    cleaned = re.sub(r"[\r\n\x00-\x1f\x7f]", "", name).strip()
+    return cleaned or "download"
 
 
 @router.post(
@@ -58,9 +75,13 @@ async def serve_file(
     service = FileService(db)
     local_path, original_name, mime_type = await service.get_file_path(uuid)
 
-    headers = {}
-    if download:
-        headers["Content-Disposition"] = f'attachment; filename="{original_name}"'
+    # MIME 스니핑 차단 + 안전 화이트리스트 외에는 강제 다운로드 (저장형 XSS 차단)
+    safe_name = quote(_sanitize_filename(original_name))
+    disposition = "inline" if (not download and mime_type in _INLINE_SAFE_MIME) else "attachment"
+    headers = {
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": f"{disposition}; filename*=UTF-8''{safe_name}",
+    }
 
     return FileResponse(
         path=local_path,

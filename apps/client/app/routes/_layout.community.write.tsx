@@ -2,13 +2,14 @@ import { redirect } from 'react-router';
 
 import { CommunityWriteView } from '~/views/community/CommunityWriteView';
 
-import { ApiError, type ApiWrappedResponse } from '~/shared/api/client';
+import { ApiError } from '~/shared/api/client';
 import { API_ENDPOINTS } from '~/shared/api/endpoints';
-import { serverFetch } from '~/shared/api/server';
+import { parseCsrfToken, serverFetch } from '~/shared/api/server';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
 import type { Route } from './+types/_layout.community.write';
+import type { ApiWrappedResponse } from '~/shared/api/client';
 import type { User } from '~/shared/types/auth';
 import type { BoardCategoryItem, BoardSummary, FileItem, PageResult, PostDetail } from '~/shared/types/post';
 import type { BookDropdownItem } from '~/shared/types/translate';
@@ -85,10 +86,14 @@ export async function action({ request }: Route.ActionArgs) {
         const cookie = request.headers.get('cookie') ?? '';
         const uploadForm = new FormData();
         uploadForm.append('file', file);
+        // double-submit CSRF: raw fetch라 serverFetch가 안 붙여주는 X-CSRF-Token을 직접 추가 (보안 #7)
+        const uploadHeaders: Record<string, string> = { cookie };
+        const csrf = parseCsrfToken(cookie);
+        if (csrf) uploadHeaders['X-CSRF-Token'] = csrf;
         try {
             const res = await fetch(`${BASE_URL}${API_ENDPOINTS.BOARD_UPLOADS(board_code)}`, {
                 method: 'POST',
-                headers: { cookie },
+                headers: uploadHeaders,
                 body: uploadForm,
             });
             const json: ApiWrappedResponse<FileItem> = await res.json();

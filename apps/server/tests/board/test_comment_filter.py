@@ -8,7 +8,7 @@ from app.board.comment_filter import run_filter
 
 
 @pytest.mark.asyncio
-async def test_run_filter_malicious():
+async def test_run_filter_malicious() -> None:
     """악성 댓글 판별 — is_malicious=True 반환"""
     mock_response = MagicMock()
     mock_response.text = '{"is_malicious": true, "reason": "욕설 포함", "confidence": 0.95}'
@@ -35,7 +35,7 @@ async def test_run_filter_malicious():
 
 
 @pytest.mark.asyncio
-async def test_run_filter_clean():
+async def test_run_filter_clean() -> None:
     """정상 댓글 판별 — is_malicious=False 반환"""
     mock_response = MagicMock()
     mock_response.text = '{"is_malicious": false, "reason": "", "confidence": 0.02}'
@@ -59,7 +59,7 @@ async def test_run_filter_clean():
 
 
 @pytest.mark.asyncio
-async def test_run_filter_no_api_key():
+async def test_run_filter_no_api_key() -> None:
     """GEMINI_API_KEY 미설정 시 ValueError"""
     with patch("app.board.comment_filter.settings") as mock_settings:
         mock_settings.gemini_api_key = ""
@@ -69,7 +69,7 @@ async def test_run_filter_no_api_key():
 
 
 @pytest.mark.asyncio
-async def test_run_filter_json_parse_error():
+async def test_run_filter_json_parse_error() -> None:
     """JSON 파싱 실패 시 RuntimeError"""
     mock_response = MagicMock()
     mock_response.text = "invalid json response"

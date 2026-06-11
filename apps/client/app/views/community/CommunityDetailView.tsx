@@ -4,9 +4,9 @@ import { Link, useLoaderData, useFetcher } from 'react-router';
 
 import { ChevronLeft, MessageSquare, Paperclip, Pencil, Trash2, User as UserIcon } from 'lucide-react';
 
-import { PUBLIC_BASE_URL } from '~/shared/api/client';
-
 import { FilteredComment } from '~/features/community/ui/FilteredComment';
+
+import { PUBLIC_BASE_URL } from '~/shared/api/client';
 import { getCommentAuthorName } from '~/shared/lib/comment';
 import { formatDate } from '~/shared/lib/date';
 import {

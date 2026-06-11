@@ -114,7 +114,7 @@ def _user_token(user_id: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_admin_list_flagged_comments(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_flagged_comments(auth_client: AsyncClient, db: AsyncSession) -> None:
     """FLAGGED 댓글 목록 조회"""
     admin = await _create_user(db, level=70)
     await _setup(db)
@@ -129,7 +129,7 @@ async def test_admin_list_flagged_comments(auth_client: AsyncClient, db: AsyncSe
 
 
 @pytest.mark.asyncio
-async def test_admin_approve_comment(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_approve_comment(auth_client: AsyncClient, db: AsyncSession) -> None:
     """승인 — CLEAN 전환 확인"""
     admin = await _create_user(db, level=70)
     _, _, comment_id = await _setup(db)
@@ -143,7 +143,7 @@ async def test_admin_approve_comment(auth_client: AsyncClient, db: AsyncSession)
 
 
 @pytest.mark.asyncio
-async def test_admin_reject_comment(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_reject_comment(auth_client: AsyncClient, db: AsyncSession) -> None:
     """거부 — 소프트 삭제 확인"""
     from sqlalchemy import select as sa_select
 
@@ -163,7 +163,7 @@ async def test_admin_reject_comment(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_admin_list_forbidden_for_user(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_forbidden_for_user(auth_client: AsyncClient, db: AsyncSession) -> None:
     """일반 사용자 접근 → 403"""
     user = await _create_user(db, level=10)
 
@@ -174,7 +174,7 @@ async def test_admin_list_forbidden_for_user(auth_client: AsyncClient, db: Async
 
 
 @pytest.mark.asyncio
-async def test_admin_list_keyword_search(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_keyword_search(auth_client: AsyncClient, db: AsyncSession) -> None:
     """keyword 검색 — 결과가 키워드 포함하는지 확인"""
     admin = await _create_user(db, level=70)
     await _setup(db)

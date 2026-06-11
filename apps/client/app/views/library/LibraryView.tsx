@@ -13,7 +13,7 @@ import type { loader } from '~/routes/_layout.library._index';
 
 export function LibraryView() {
     const { items, total, page, size, q, bm, error } = useLoaderData<typeof loader>();
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [, setSearchParams] = useSearchParams();
     const revalidator = useRevalidator();
     const user = useAuthStore((s) => s.user);
     const isLoggedIn = user !== null;

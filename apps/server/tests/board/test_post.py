@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from httpx import AsyncClient
@@ -45,14 +46,15 @@ async def _create_post(
     board_code: str = "translation",
     title: str = "테스트 제목",
     content: str = "테스트 본문",
-) -> dict:
+) -> dict[str, Any]:
     auth_client.cookies.set("access_token", token)
     resp = await auth_client.post(
         "/api/v1/posts",
         json={"board_code": board_code, "title": title, "content": content},
     )
     assert resp.status_code == 201
-    return resp.json()["body"]["data"]
+    data: dict[str, Any] = resp.json()["body"]["data"]
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +63,7 @@ async def _create_post(
 
 
 @pytest.mark.asyncio
-async def test_list_posts_guest(auth_client: AsyncClient):
+async def test_list_posts_guest(auth_client: AsyncClient) -> None:
     """GUEST 게시글 목록 조회 → 200"""
     resp = await auth_client.post(
         "/api/v1/posts/list",
@@ -74,7 +76,7 @@ async def test_list_posts_guest(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_create_post(auth_client: AsyncClient, db: AsyncSession):
+async def test_create_post(auth_client: AsyncClient, db: AsyncSession) -> None:
     """USER 게시글 작성 → 201, POST_ ID 발급, author_name 스냅샷"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -93,7 +95,7 @@ async def test_create_post(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_get_post_increments_view_count(auth_client: AsyncClient, db: AsyncSession):
+async def test_get_post_increments_view_count(auth_client: AsyncClient, db: AsyncSession) -> None:
     """게시글 단건 조회 → view_count +1"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -111,7 +113,7 @@ async def test_get_post_increments_view_count(auth_client: AsyncClient, db: Asyn
 
 
 @pytest.mark.asyncio
-async def test_update_post(auth_client: AsyncClient, db: AsyncSession):
+async def test_update_post(auth_client: AsyncClient, db: AsyncSession) -> None:
     """게시글 수정 → 200 UPDATED, 변경 필드만 반영"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -129,7 +131,7 @@ async def test_update_post(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_delete_post(auth_client: AsyncClient, db: AsyncSession):
+async def test_delete_post(auth_client: AsyncClient, db: AsyncSession) -> None:
     """게시글 삭제 → 200 DELETED, 목록 미노출"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -151,7 +153,7 @@ async def test_delete_post(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_list_posts_unknown_board_codes(auth_client: AsyncClient):
+async def test_list_posts_unknown_board_codes(auth_client: AsyncClient) -> None:
     """존재하지 않는 board_codes → 200, 빈 목록 반환"""
     resp = await auth_client.post(
         "/api/v1/posts/list",
@@ -164,7 +166,7 @@ async def test_list_posts_unknown_board_codes(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_get_post_not_found(auth_client: AsyncClient):
+async def test_get_post_not_found(auth_client: AsyncClient) -> None:
     """없는 post_id 단건 조회 → 404 POST_NOT_FOUND"""
     resp = await auth_client.get("/api/v1/posts/POST_99999999")
     assert resp.status_code == 404
@@ -172,7 +174,7 @@ async def test_get_post_not_found(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_create_post_unauthenticated(auth_client: AsyncClient):
+async def test_create_post_unauthenticated(auth_client: AsyncClient) -> None:
     """비로그인 게시글 작성 → 401"""
     resp = await auth_client.post(
         "/api/v1/posts",
@@ -182,7 +184,7 @@ async def test_create_post_unauthenticated(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_update_post_forbidden(auth_client: AsyncClient, db: AsyncSession):
+async def test_update_post_forbidden(auth_client: AsyncClient, db: AsyncSession) -> None:
     """타인의 게시글 수정 → 403 FORBIDDEN"""
     owner = await _create_user(db)
     other = await _create_user(db)
@@ -201,7 +203,7 @@ async def test_update_post_forbidden(auth_client: AsyncClient, db: AsyncSession)
 
 
 @pytest.mark.asyncio
-async def test_notice_requires_admin(auth_client: AsyncClient, db: AsyncSession):
+async def test_notice_requires_admin(auth_client: AsyncClient, db: AsyncSession) -> None:
     """USER가 notice_yn=true 설정 → 403 FORBIDDEN"""
     user = await _create_user(db, user_level=10)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -272,9 +274,11 @@ async def _create_board(
 @pytest.mark.asyncio
 async def test_community_board_list_accessible_without_login(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """board_group=community + guest_read_yn=false → 비로그인 목록 조회 200 (게시글 포함)"""
-    board = await _create_board(db, board_code="test_restricted_list", guest_read_yn=False)
+    board = await _create_board(
+        db, board_code=f"test_restricted_list_{uuid.uuid4().hex[:6]}", guest_read_yn=False
+    )
 
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -293,9 +297,11 @@ async def test_community_board_list_accessible_without_login(
 @pytest.mark.asyncio
 async def test_community_board_detail_forbidden_without_login(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """board_group=community + guest_read_yn=false → 비로그인 상세 조회 403"""
-    board = await _create_board(db, board_code="test_restricted_detail", guest_read_yn=False)
+    board = await _create_board(
+        db, board_code=f"test_restricted_detail_{uuid.uuid4().hex[:6]}", guest_read_yn=False
+    )
 
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -312,7 +318,9 @@ async def test_community_board_detail_forbidden_without_login(
 
 
 @pytest.mark.asyncio
-async def test_create_post_auto_reply_status_pending(auth_client: AsyncClient, db: AsyncSession):
+async def test_create_post_auto_reply_status_pending(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     """auto_reply_enabled=true 게시판 → 게시글 생성 시 auto_reply_status=PENDING"""
     now = datetime.now(UTC)
     board = Board(
@@ -359,7 +367,9 @@ async def test_create_post_auto_reply_status_pending(auth_client: AsyncClient, d
 
 
 @pytest.mark.asyncio
-async def test_create_post_auto_reply_status_skipped(auth_client: AsyncClient, db: AsyncSession):
+async def test_create_post_auto_reply_status_skipped(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     """auto_reply_enabled=false 게시판 → 게시글 생성 시 auto_reply_status=SKIPPED"""
     now = datetime.now(UTC)
     board = Board(
@@ -450,7 +460,9 @@ async def _create_completed_book(db: AsyncSession, owner_id: str) -> Book:
 
 
 @pytest.mark.asyncio
-async def test_create_post_with_book_id_sets_skipped(auth_client: AsyncClient, db: AsyncSession):
+async def test_create_post_with_book_id_sets_skipped(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     """book_id 전달 시 auto_reply_status=SKIPPED, post.book_id 저장"""
     user = await _create_user(db)
     book = await _create_completed_book(db, user.id)
@@ -474,7 +486,7 @@ async def test_create_post_with_book_id_sets_skipped(auth_client: AsyncClient, d
 @pytest.mark.asyncio
 async def test_create_post_with_invalid_book_id_returns_404(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """존재하지 않는 book_id → 404"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -496,7 +508,7 @@ async def test_create_post_with_invalid_book_id_returns_404(
 @pytest.mark.asyncio
 async def test_create_post_with_other_user_book_returns_403(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """타인 소유 book_id → 403"""
     owner = await _create_user(db)
     book = await _create_completed_book(db, owner.id)
@@ -516,7 +528,7 @@ async def test_create_post_with_other_user_book_returns_403(
 @pytest.mark.asyncio
 async def test_create_post_with_non_completed_book_returns_400(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """COMPLETED 아닌 book_id → 400"""
     user = await _create_user(db)
     book = await _create_completed_book(db, user.id)
@@ -535,7 +547,7 @@ async def test_create_post_with_non_completed_book_returns_400(
 
 
 @pytest.mark.asyncio
-async def test_get_post_includes_book_data(auth_client: AsyncClient, db: AsyncSession):
+async def test_get_post_includes_book_data(auth_client: AsyncClient, db: AsyncSession) -> None:
     """book_id 연동된 게시글 조회 → response.book 포함, pages 있음"""
     user = await _create_user(db)
     book = await _create_completed_book(db, user.id)
@@ -566,7 +578,7 @@ async def test_get_post_includes_book_data(auth_client: AsyncClient, db: AsyncSe
 @pytest.mark.asyncio
 async def test_get_post_without_book_id_returns_null_book(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """book_id 없는 게시글 조회 → response.book is None"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)

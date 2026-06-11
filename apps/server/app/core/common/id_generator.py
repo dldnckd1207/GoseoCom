@@ -16,6 +16,10 @@ _SEQ_MAP = {
     "CMT_": "seq_cmt",
     "BOOK_": "seq_book",
     "BPAGE_": "seq_bpage",
+    "LSES_": "seq_lses",
+    "LMSG_": "seq_lmsg",
+    "LCARD_": "seq_lcard",
+    "LPRG_": "seq_lprg",
 }
 
 

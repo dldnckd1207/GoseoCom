@@ -8,6 +8,7 @@ interface UserTableProps {
   users: AdminUserListItem[];
   isLoading: boolean;
   isError: boolean;
+  rowNumberStart: number;
   onRetry: () => void;
   onEdit: (user: AdminUserListItem) => void;
 }
@@ -25,7 +26,14 @@ function StatusBadge({ children }: { children: string }) {
   return <span className="rounded-full border border-border px-2 py-1 text-xs">{children}</span>;
 }
 
-export function UserTable({ users, isLoading, isError, onRetry, onEdit }: UserTableProps) {
+export function UserTable({
+  users,
+  isLoading,
+  isError,
+  rowNumberStart,
+  onRetry,
+  onEdit,
+}: UserTableProps) {
   if (isLoading) {
     return (
       <div className="rounded-md border border-border bg-card p-8 text-sm text-muted-foreground">
@@ -59,6 +67,7 @@ export function UserTable({ users, isLoading, isError, onRetry, onEdit }: UserTa
       <table className="w-full min-w-[860px] text-left text-sm">
         <thead className="border-b border-border bg-muted/60 text-xs uppercase tracking-[0.08em] text-muted-foreground">
           <tr>
+            <th className="w-16 px-4 py-3 font-medium">순번</th>
             <th className="px-4 py-3 font-medium">사용자</th>
             <th className="px-4 py-3 font-medium">권한</th>
             <th className="px-4 py-3 font-medium">사용 여부</th>
@@ -69,8 +78,11 @@ export function UserTable({ users, isLoading, isError, onRetry, onEdit }: UserTa
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
+          {users.map((user, index) => (
             <tr key={user.id} className="border-b border-border last:border-b-0">
+              <td className="px-4 py-3 text-muted-foreground tabular-nums">
+                {rowNumberStart - index}
+              </td>
               <td className="px-4 py-3">
                 <div className="font-medium">
                   {user.name}

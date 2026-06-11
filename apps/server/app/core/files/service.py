@@ -14,6 +14,16 @@ from app.core.files.models import File
 from app.core.files.repository import FileRepository
 from app.core.files.schemas import FileUploadResponse
 
+# 브라우저에서 스크립트가 실행될 수 있는 위험 타입 — 업로드 차단 (저장형 XSS, 점검보고서 #4)
+_BLOCKED_MIME = {
+    "text/html",
+    "application/xhtml+xml",
+    "image/svg+xml",
+    "application/xml",
+    "text/xml",
+}
+_BLOCKED_EXT = {"html", "htm", "xhtml", "xht", "shtml", "svg", "xml"}
+
 
 class FileService:
     def __init__(self, db: AsyncSession) -> None:
@@ -29,6 +39,16 @@ class FileService:
         original_name = file.filename or "unknown"
         file_ext = Path(original_name).suffix.lstrip(".").lower()
         mime_type = file.content_type or "application/octet-stream"
+
+        # 콘텐츠 타입/확장자 중 하나라도 위험 타입이면 차단 (content_type은 클라이언트 제어값)
+        if mime_type.split(";")[0].strip().lower() in _BLOCKED_MIME or file_ext in _BLOCKED_EXT:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "code": "BLOCKED_FILE_TYPE",
+                    "message": "허용되지 않는 파일 형식입니다.",
+                },
+            )
 
         file_uuid = str(uuid.uuid4())
         now = datetime.now(UTC)

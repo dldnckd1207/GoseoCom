@@ -1,6 +1,7 @@
 """SFR-105: 게시판 관리 테스트"""
 
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from httpx import AsyncClient
@@ -40,7 +41,7 @@ async def _create_user(db: AsyncSession, user_level: int = 70) -> User:
 
 async def _create_board(
     auth_client: AsyncClient, token: str, board_code: str, sort_order: int = 99
-) -> dict:
+) -> dict[str, Any]:
     auth_client.cookies.set("access_token", token)
     resp = await auth_client.post(
         "/admin/api/v1/boards",
@@ -52,7 +53,8 @@ async def _create_board(
         },
     )
     assert resp.status_code == 201
-    return resp.json()["body"]["data"]
+    data: dict[str, Any] = resp.json()["body"]["data"]
+    return data
 
 
 async def _create_post(
@@ -60,24 +62,26 @@ async def _create_post(
     token: str,
     board_code: str,
     title: str = "게시글",
-) -> dict:
+) -> dict[str, Any]:
     auth_client.cookies.set("access_token", token)
     resp = await auth_client.post(
         "/api/v1/posts",
         json={"board_code": board_code, "title": title, "content": "본문"},
     )
     assert resp.status_code == 201
-    return resp.json()["body"]["data"]
+    data: dict[str, Any] = resp.json()["body"]["data"]
+    return data
 
 
-async def _create_comment(auth_client: AsyncClient, token: str, post_id: str) -> dict:
+async def _create_comment(auth_client: AsyncClient, token: str, post_id: str) -> dict[str, Any]:
     auth_client.cookies.set("access_token", token)
     resp = await auth_client.post(
         f"/api/v1/posts/{post_id}/comments",
         json={"content": "댓글"},
     )
     assert resp.status_code == 201
-    return resp.json()["body"]["data"]
+    data: dict[str, Any] = resp.json()["body"]["data"]
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +90,7 @@ async def _create_comment(auth_client: AsyncClient, token: str, post_id: str) ->
 
 
 @pytest.mark.asyncio
-async def test_guest_list_boards(auth_client: AsyncClient):
+async def test_guest_list_boards(auth_client: AsyncClient) -> None:
     """GUEST 게시판 목록 조회 → 200, seed 3개 이상"""
     resp = await auth_client.post("/api/v1/boards/list", json={"page": 1, "size": 20})
     assert resp.status_code == 200
@@ -96,7 +100,7 @@ async def test_guest_list_boards(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_guest_get_board_by_code(auth_client: AsyncClient):
+async def test_guest_get_board_by_code(auth_client: AsyncClient) -> None:
     """GUEST 게시판 단건 조회 → 200, 전체 설정 반환"""
     resp = await auth_client.get("/api/v1/boards/translation")
     assert resp.status_code == 200
@@ -108,7 +112,7 @@ async def test_guest_get_board_by_code(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_admin_create_board(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_create_board(auth_client: AsyncClient, db: AsyncSession) -> None:
     """ADMIN 게시판 생성 → 201, BRD_ ID 발급"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -129,7 +133,7 @@ async def test_admin_create_board(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_admin_update_board(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_update_board(auth_client: AsyncClient, db: AsyncSession) -> None:
     """ADMIN 게시판 수정 → 200, 변경 필드만 반영, board_code 유지"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -149,7 +153,7 @@ async def test_admin_update_board(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_admin_manage_board_categories(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_manage_board_categories(auth_client: AsyncClient, db: AsyncSession) -> None:
     """ADMIN 카테고리 생성/목록/수정/삭제 → 정상 처리"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -199,7 +203,9 @@ async def test_admin_manage_board_categories(auth_client: AsyncClient, db: Async
 
 
 @pytest.mark.asyncio
-async def test_admin_category_requires_matching_board(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_category_requires_matching_board(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     """다른 게시판의 카테고리 수정/삭제 → 404 CATEGORY_NOT_FOUND"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -228,7 +234,7 @@ async def test_admin_category_requires_matching_board(auth_client: AsyncClient, 
 
 
 @pytest.mark.asyncio
-async def test_admin_delete_board_no_posts(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_delete_board_no_posts(auth_client: AsyncClient, db: AsyncSession) -> None:
     """게시글 없는 게시판 삭제 → 200 DELETED, 목록 미노출"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -248,7 +254,7 @@ async def test_admin_delete_board_no_posts(auth_client: AsyncClient, db: AsyncSe
 @pytest.mark.asyncio
 async def test_admin_delete_board_soft_deletes_posts_and_comments(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """게시글 있는 게시판 삭제 → 게시판/게시글/댓글 모두 논리 삭제"""
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10)
@@ -281,7 +287,7 @@ async def test_admin_delete_board_soft_deletes_posts_and_comments(
 
 
 @pytest.mark.asyncio
-async def test_admin_list_boards_includes_all(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_boards_includes_all(auth_client: AsyncClient, db: AsyncSession) -> None:
     """ADMIN 목록 조회 → seed 3개 이상 반환"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -293,7 +299,9 @@ async def test_admin_list_boards_includes_all(auth_client: AsyncClient, db: Asyn
 
 
 @pytest.mark.asyncio
-async def test_admin_list_boards_orders_by_id_desc(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_boards_orders_by_id_desc(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     """ADMIN 목록 조회 → ID 내림차순 정렬"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -314,7 +322,9 @@ async def test_admin_list_boards_orders_by_id_desc(auth_client: AsyncClient, db:
 
 
 @pytest.mark.asyncio
-async def test_admin_list_boards_uses_id_as_tie_breaker(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_boards_uses_id_as_tie_breaker(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     """ADMIN 목록 조회 → sort_order가 같아도 ID 내림차순 정렬"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -339,7 +349,7 @@ async def test_admin_list_boards_uses_id_as_tie_breaker(auth_client: AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_duplicate_board_code(auth_client: AsyncClient, db: AsyncSession):
+async def test_duplicate_board_code(auth_client: AsyncClient, db: AsyncSession) -> None:
     """중복 board_code 생성 → 409 BOARD_CODE_ALREADY_EXISTS"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -356,7 +366,7 @@ async def test_duplicate_board_code(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_update_not_found(auth_client: AsyncClient, db: AsyncSession):
+async def test_update_not_found(auth_client: AsyncClient, db: AsyncSession) -> None:
     """없는 board_id 수정 → 404 BOARD_NOT_FOUND"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -370,7 +380,7 @@ async def test_update_not_found(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_delete_not_found(auth_client: AsyncClient, db: AsyncSession):
+async def test_delete_not_found(auth_client: AsyncClient, db: AsyncSession) -> None:
     """없는 board_id 삭제 → 404 BOARD_NOT_FOUND"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -382,7 +392,7 @@ async def test_delete_not_found(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_unauthenticated_admin_create(auth_client: AsyncClient):
+async def test_unauthenticated_admin_create(auth_client: AsyncClient) -> None:
     """비로그인 ADMIN API 호출 → 401 UNAUTHORIZED"""
     resp = await auth_client.post(
         "/admin/api/v1/boards",
@@ -393,7 +403,7 @@ async def test_unauthenticated_admin_create(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_user_level_forbidden(auth_client: AsyncClient, db: AsyncSession):
+async def test_user_level_forbidden(auth_client: AsyncClient, db: AsyncSession) -> None:
     """USER 권한으로 ADMIN API 호출 → 403 FORBIDDEN"""
     user = await _create_user(db, user_level=10)
     token = create_access_token(user.id, user_level=10)
@@ -408,7 +418,7 @@ async def test_user_level_forbidden(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_board_code(auth_client: AsyncClient):
+async def test_get_nonexistent_board_code(auth_client: AsyncClient) -> None:
     """존재하지 않는 board_code 단건 조회 → 404 BOARD_NOT_FOUND"""
     resp = await auth_client.get("/api/v1/boards/nonexistent-board-xyz")
     assert resp.status_code == 404
@@ -416,7 +426,7 @@ async def test_get_nonexistent_board_code(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_invalid_board_type(auth_client: AsyncClient, db: AsyncSession):
+async def test_invalid_board_type(auth_client: AsyncClient, db: AsyncSession) -> None:
     """유효하지 않은 board_type → 422"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)
@@ -430,7 +440,7 @@ async def test_invalid_board_type(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_board_code_immutable(auth_client: AsyncClient, db: AsyncSession):
+async def test_board_code_immutable(auth_client: AsyncClient, db: AsyncSession) -> None:
     """board_code는 수정 불가 — 요청에 포함 안 되므로 기존 값 유지"""
     admin = await _create_user(db, user_level=70)
     token = create_access_token(admin.id, user_level=70)

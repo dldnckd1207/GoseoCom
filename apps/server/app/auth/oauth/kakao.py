@@ -1,12 +1,8 @@
 """Kakao OAuth 2.0 클라이언트"""
 
-import logging
-
 import httpx
 
 from app.config import settings
-
-logger = logging.getLogger(__name__)
 
 KAKAO_AUTH_URL = "https://kauth.kakao.com/oauth/authorize"
 KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
@@ -49,7 +45,6 @@ async def get_user_info(access_token: str) -> dict[str, object]:
         )
         response.raise_for_status()
         data: dict[str, object] = response.json()
-        logger.debug("Kakao user_info raw: %s", data)  # TODO: 디버깅 완료 후 제거
         kakao_account: dict[str, object] = data.get("kakao_account", {})  # type: ignore[assignment]
         profile: dict[str, object] = kakao_account.get("profile", {})  # type: ignore[assignment]
         return {
@@ -57,4 +52,6 @@ async def get_user_info(access_token: str) -> dict[str, object]:
             "email": kakao_account.get("email"),
             "name": profile.get("nickname"),
             "picture": profile.get("profile_image_url"),
+            # email_verified: 필드 부재/파싱 불가 시 False로 안전 처리(계정 연동 금지)
+            "email_verified": kakao_account.get("is_email_verified") is True,
         }

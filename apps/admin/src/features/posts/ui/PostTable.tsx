@@ -9,7 +9,7 @@ interface PostTableProps {
   isLoading: boolean;
   isError: boolean;
   isPending: boolean;
-  startIndex: number;
+  rowNumberStart: number;
   onRetry: () => void;
   onDetail: (postId: string) => void;
   onDelete: (post: AdminPostListItem) => void;
@@ -34,7 +34,7 @@ export function PostTable({
   isLoading,
   isError,
   isPending,
-  startIndex,
+  rowNumberStart,
   onRetry,
   onDetail,
   onDelete,
@@ -90,7 +90,7 @@ export function PostTable({
           {posts.map((post, index) => (
             <tr key={post.id} className="border-b border-border last:border-b-0">
               <td className="px-4 py-3 text-muted-foreground tabular-nums">
-                {startIndex + index + 1}
+                {rowNumberStart - index}
               </td>
               <td className="px-4 py-3">{post.board_name}</td>
               <td className="px-4 py-3 text-muted-foreground">

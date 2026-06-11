@@ -2,7 +2,7 @@ import { TranslateView } from '~/views/translate/TranslateView';
 
 import { ApiError } from '~/shared/api/client';
 import { API_ENDPOINTS } from '~/shared/api/endpoints';
-import { serverFetch } from '~/shared/api/server';
+import { parseCsrfToken, serverFetch } from '~/shared/api/server';
 
 import type { Route } from './+types/_protected.translate';
 import type { ApiWrappedResponse } from '~/shared/api/client';
@@ -42,11 +42,16 @@ export async function action({ request }: Route.ActionArgs) {
     const uploadForm = new FormData();
     uploadForm.append('file', file);
 
+    // double-submit CSRF: raw fetch라 serverFetch가 안 붙여주는 X-CSRF-Token을 직접 추가 (보안 #7)
+    const uploadHeaders: Record<string, string> = { cookie };
+    const csrf = parseCsrfToken(cookie);
+    if (csrf) uploadHeaders['X-CSRF-Token'] = csrf;
+
     let fileId: string;
     try {
         const uploadRes = await fetch(`${BASE_URL}${API_ENDPOINTS.UPLOADS}`, {
             method: 'POST',
-            headers: { cookie },
+            headers: uploadHeaders,
             body: uploadForm,
         });
         const uploadJson: ApiWrappedResponse<FileUploadResult> = await uploadRes.json();

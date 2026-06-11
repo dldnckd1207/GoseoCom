@@ -160,7 +160,7 @@ export function BoardsPage() {
         boards={data?.items ?? []}
         isLoading={boardsQuery.isLoading}
         isError={boardsQuery.isError}
-        startIndex={(page - 1) * (data?.size ?? 10)}
+        rowNumberStart={(data?.total ?? 0) - (page - 1) * (data?.size ?? 10)}
         onRetry={() => void boardsQuery.refetch()}
         onEdit={handleEdit}
         onManageCategories={(board) => setCategoryDialog({ board, open: true })}

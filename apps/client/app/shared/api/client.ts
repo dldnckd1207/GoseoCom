@@ -48,8 +48,21 @@ async function tryRefresh(): Promise<void> {
     return refreshPromise;
 }
 
+// double-submit CSRF: non-httpOnly csrf_token 쿠키를 읽어 X-CSRF-Token 헤더로 재전송 (보안 #7)
+function getCsrfToken(): string | undefined {
+    if (typeof document === 'undefined') return undefined;
+    const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 function buildHeaders(options?: RequestInit): HeadersInit {
-    return { 'Content-Type': 'application/json', ...options?.headers };
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(options?.headers as Record<string, string> | undefined),
+    };
+    const csrf = getCsrfToken();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+    return headers;
 }
 
 // 401 발생 시 refresh 시도 후 원 요청 1회 재전송. refresh 실패 시 /login redirect.

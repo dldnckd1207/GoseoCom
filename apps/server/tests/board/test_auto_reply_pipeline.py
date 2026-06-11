@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from sqlalchemy import select
@@ -205,7 +206,7 @@ async def _get_ai_comment(db: AsyncSession, post_id: str) -> Comment | None:
 
 
 @pytest.mark.asyncio
-async def test_process_post_completed(db: AsyncSession, monkeypatch):
+async def test_process_post_completed(db: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
     """PENDING + delay 경과 + comment_count=0 → COMPLETED, 댓글 생성, PipelineRun 기록"""
     board = await _create_board(db, auto_reply_delay_min=0)
     user = await _create_user(db)
@@ -238,7 +239,7 @@ async def test_process_post_completed(db: AsyncSession, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_find_eligible_posts_excludes_delay_not_elapsed(db: AsyncSession):
+async def test_find_eligible_posts_excludes_delay_not_elapsed(db: AsyncSession) -> None:
     """delay 미경과 게시글은 _find_eligible_posts 조회에서 제외"""
     board = await _create_board(db, auto_reply_delay_min=60)
     user = await _create_user(db)
@@ -256,7 +257,9 @@ async def test_find_eligible_posts_excludes_delay_not_elapsed(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_process_post_skipped_another_worker_preempted(db: AsyncSession, monkeypatch):
+async def test_process_post_skipped_another_worker_preempted(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """다른 워커가 RUNNING으로 선점한 경우 → 아무것도 안 함 (status 유지)"""
     board = await _create_board(db)
     user = await _create_user(db)
@@ -279,7 +282,7 @@ async def test_process_post_skipped_another_worker_preempted(db: AsyncSession, m
 
 
 @pytest.mark.asyncio
-async def test_process_post_skipped_when_deleted(db: AsyncSession):
+async def test_process_post_skipped_when_deleted(db: AsyncSession) -> None:
     """delay 중 게시글 삭제(del_yn=True) → SKIPPED, PipelineRun 미생성"""
     board = await _create_board(db)
     user = await _create_user(db)
@@ -297,7 +300,7 @@ async def test_process_post_skipped_when_deleted(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_process_post_skipped_when_comment_exists(db: AsyncSession):
+async def test_process_post_skipped_when_comment_exists(db: AsyncSession) -> None:
     """delay 중 댓글 생성(comment_count>0) → SKIPPED, PipelineRun 미생성"""
     board = await _create_board(db)
     user = await _create_user(db)
@@ -315,7 +318,7 @@ async def test_process_post_skipped_when_comment_exists(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_process_post_skipped_when_board_comment_yn_false(db: AsyncSession):
+async def test_process_post_skipped_when_board_comment_yn_false(db: AsyncSession) -> None:
     """delay 중 board.comment_yn=false → SKIPPED, PipelineRun 미생성"""
     board = await _create_board(db, comment_yn=False)
     user = await _create_user(db)
@@ -338,7 +341,9 @@ async def test_process_post_skipped_when_board_comment_yn_false(db: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_process_post_fallback_to_claude(db: AsyncSession, monkeypatch):
+async def test_process_post_fallback_to_claude(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Gemini 실패 → Claude fallback 성공 → COMPLETED"""
     board = await _create_board(db)
     user = await _create_user(db)
@@ -366,7 +371,9 @@ async def test_process_post_fallback_to_claude(db: AsyncSession, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_process_post_failed_both_ai(db: AsyncSession, monkeypatch):
+async def test_process_post_failed_both_ai(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Gemini + Claude 모두 실패 → FAILED, PipelineRun error_msg 기록"""
     board = await _create_board(db)
     user = await _create_user(db)
@@ -397,7 +404,9 @@ async def test_process_post_failed_both_ai(db: AsyncSession, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_process_post_failed_when_pipeline_run_refresh_fails(db: AsyncSession, monkeypatch):
+async def test_process_post_failed_when_pipeline_run_refresh_fails(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """RUNNING 선점 후 PipelineRun 초기화 실패 → Post와 PipelineRun 모두 FAILED"""
     board = await _create_board(db)
     user = await _create_user(db)
@@ -407,7 +416,7 @@ async def test_process_post_failed_when_pipeline_run_refresh_fails(db: AsyncSess
 
     original_refresh = db.refresh
 
-    async def _refresh_fail_on_pipeline_run(instance, *args, **kwargs):
+    async def _refresh_fail_on_pipeline_run(instance: object, *args: Any, **kwargs: Any) -> None:
         if isinstance(instance, PipelineRun):
             raise RuntimeError("PipelineRun refresh 실패")
         return await original_refresh(instance, *args, **kwargs)
@@ -440,7 +449,7 @@ async def test_process_post_failed_when_pipeline_run_refresh_fails(db: AsyncSess
 
 
 @pytest.mark.asyncio
-async def test_pipeline_board_with_book_id_skipped(db: AsyncSession):
+async def test_pipeline_board_with_book_id_skipped(db: AsyncSession) -> None:
     """pipeline_enabled=true + book_id 있음 → 번역이력 첨부 게시글, SKIPPED"""
     board = await _create_board(db, pipeline_enabled=True)
     user = await _create_user(db)
@@ -462,7 +471,7 @@ async def test_pipeline_board_with_book_id_skipped(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_pipeline_board_no_image_skipped(db: AsyncSession):
+async def test_pipeline_board_no_image_skipped(db: AsyncSession) -> None:
     """pipeline_enabled=true + 이미지 첨부 없음 → OCR 불가, SKIPPED"""
     board = await _create_board(db, pipeline_enabled=True)
     user = await _create_user(db)
@@ -483,7 +492,7 @@ async def test_pipeline_board_no_image_skipped(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_pipeline_board_success(db: AsyncSession, monkeypatch):
+async def test_pipeline_board_success(db: AsyncSession, monkeypatch: pytest.MonkeyPatch) -> None:
     """pipeline_enabled=true + 이미지 있음 → OCR+번역 실행, 댓글 등록, COMPLETED"""
     board = await _create_board(db, pipeline_enabled=True)
     user = await _create_user(db)
@@ -523,7 +532,9 @@ async def test_pipeline_board_success(db: AsyncSession, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_pipeline_board_ocr_empty_text_failed(db: AsyncSession, monkeypatch):
+async def test_pipeline_board_ocr_empty_text_failed(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """pipeline_enabled=true + 이미지 있음 + OCR 빈 텍스트 반환 → FAILED, PipelineRun 기록"""
     board = await _create_board(db, pipeline_enabled=True)
     user = await _create_user(db)
@@ -555,7 +566,9 @@ async def test_pipeline_board_ocr_empty_text_failed(db: AsyncSession, monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_pipeline_board_ocr_exception_failed(db: AsyncSession, monkeypatch):
+async def test_pipeline_board_ocr_exception_failed(
+    db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """pipeline_enabled=true + 이미지 있음 + run_ocr 예외 → FAILED, PipelineRun error_msg 기록"""
     board = await _create_board(db, pipeline_enabled=True)
     user = await _create_user(db)

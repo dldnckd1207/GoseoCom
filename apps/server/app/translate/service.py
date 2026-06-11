@@ -19,6 +19,11 @@ from app.translate.repository import (
     PipelineRunRepository,
 )
 from app.translate.schemas import (
+    AdminPipelineRunResponse,
+    AdminTranslationDetailResponse,
+    AdminTranslationListRequest,
+    AdminTranslationPageResponse,
+    AdminTranslationSummaryResponse,
     BookBookmarkResponse,
     BookDropdownItemResponse,
     BookFavoriteResponse,
@@ -87,6 +92,50 @@ def _build_book_response(book: Book) -> BookResponse:
     return data
 
 
+def _can_retry_book(book: Book) -> bool:
+    return bool(
+        book.status == "FAILED"
+        and book.source_file_id is not None
+        and book.source_file is not None
+        and book.source_file.local_path
+    )
+
+
+def _retry_disabled_reason(book: Book) -> str | None:
+    if book.status != "FAILED":
+        return "실패 상태의 번역만 재시도할 수 있습니다."
+    if not book.source_file_id or not book.source_file or not book.source_file.local_path:
+        return "원본 파일이 없어 재시도할 수 없습니다."
+    return None
+
+
+def _build_admin_page_response(page: BookPage) -> AdminTranslationPageResponse:
+    return AdminTranslationPageResponse(
+        page_no=page.page_no,
+        status=page.status,
+        ocr_text=page.ocr_text,
+        literal_text=page.literal_text,
+        interpretive_text=page.interpretive_text,
+        has_ocr_text=bool(page.ocr_text),
+        has_literal_text=bool(page.literal_text),
+        has_interpretive_text=bool(page.interpretive_text),
+        ocr_engine=page.ocr_engine,
+        translator_engine=page.translator_engine,
+    )
+
+
+def _build_admin_run_response(run: PipelineRun) -> AdminPipelineRunResponse:
+    return AdminPipelineRunResponse(
+        id=run.id,
+        trigger_type=run.trigger_type,
+        status=run.status,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+        duration_ms=run.duration_ms,
+        error_msg=run.error_msg,
+    )
+
+
 class TranslateService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -150,6 +199,129 @@ class TranslateService:
         await self.db.commit()
 
         background_tasks.add_task(run_pipeline, book.id, file_entity.local_path, pipeline_run.id)
+
+        return TranslateStartResponse(book_id=book.id, status=book.status)
+
+    async def admin_list_translations(
+        self,
+        req: AdminTranslationListRequest,
+        current_user_id: str,
+    ) -> PageData[AdminTranslationSummaryResponse]:
+        keyword = req.keyword.strip() if req.keyword else None
+        books, total = await self.book_repo.admin_list(
+            page=req.page,
+            size=req.size,
+            keyword=keyword or None,
+            status=req.status,
+        )
+        latest_runs = await self.run_repo.get_latest_by_book_ids([book.id for book in books])
+
+        items = []
+        for book in books:
+            latest_run = latest_runs.get(book.id)
+            items.append(
+                AdminTranslationSummaryResponse(
+                    book_id=book.id,
+                    title=book.title,
+                    owner_name=book.owner.name if book.owner else "",
+                    owner_is_self=book.owner_user_id == current_user_id,
+                    status=book.status,
+                    total_pages=book.total_pages,
+                    created_at=book.created_at,
+                    latest_run_status=latest_run.status if latest_run else None,
+                    latest_run_error_msg=latest_run.error_msg if latest_run else None,
+                    can_retry=_can_retry_book(book),
+                )
+            )
+
+        return PageData(items=items, total=total, page=req.page, size=req.size)
+
+    async def admin_get_translation(
+        self,
+        book_id: str,
+        current_user_id: str,
+    ) -> AdminTranslationDetailResponse:
+        book = await self.book_repo.admin_get_detail(book_id)
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "BOOK_NOT_FOUND", "message": "번역 이력을 찾을 수 없습니다."},
+            )
+        runs = await self.run_repo.list_by_book(book_id, limit=10)
+        pages = sorted(book.pages, key=lambda page: page.page_no)
+        return AdminTranslationDetailResponse(
+            book_id=book.id,
+            title=book.title,
+            owner_name=book.owner.name if book.owner else "",
+            owner_is_self=book.owner_user_id == current_user_id,
+            status=book.status,
+            book_type=book.book_type,
+            source_type=book.source_type,
+            total_pages=book.total_pages,
+            source_file_url=book.source_file.url_path if book.source_file else None,
+            created_at=book.created_at,
+            updated_at=book.updated_at,
+            can_retry=_can_retry_book(book),
+            retry_disabled_reason=_retry_disabled_reason(book),
+            pages=[_build_admin_page_response(page) for page in pages],
+            pipeline_runs=[_build_admin_run_response(run) for run in runs],
+        )
+
+    async def admin_retry_translate(
+        self,
+        book_id: str,
+        payload: dict[str, Any],
+        background_tasks: BackgroundTasks,
+    ) -> TranslateStartResponse:
+        admin_id: str = payload["sub"]
+        book = await self.book_repo.admin_get_detail(book_id)
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "BOOK_NOT_FOUND", "message": "번역 이력을 찾을 수 없습니다."},
+            )
+        if book.status != "FAILED":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "BOOK_NOT_FAILED",
+                    "message": "실패 상태의 번역만 재시도할 수 있습니다.",
+                },
+            )
+        if not book.source_file or not book.source_file.local_path:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "BOOK_SOURCE_FILE_MISSING",
+                    "message": "원본 파일이 없어 재시도할 수 없습니다.",
+                },
+            )
+
+        now = datetime.now(UTC)
+        book.status = "PENDING"
+        book.updated_at = now
+        book.updated_by = admin_id
+
+        for page in book.pages:
+            page.status = "PENDING"
+            page.ocr_text = None
+            page.literal_text = None
+            page.interpretive_text = None
+            page.updated_at = now
+            page.updated_by = admin_id
+
+        pipeline_run = PipelineRun(
+            trigger_type="TRANSLATOR",
+            triggered_by=admin_id,
+            book_id=book.id,
+            status="PENDING",
+            created_at=now,
+        )
+        await self.run_repo.create(pipeline_run)
+        source_path = book.source_file.local_path
+        await self.db.commit()
+
+        background_tasks.add_task(run_pipeline, book.id, source_path, pipeline_run.id)
 
         return TranslateStartResponse(book_id=book.id, status=book.status)
 

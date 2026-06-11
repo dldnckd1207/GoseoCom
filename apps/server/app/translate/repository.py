@@ -1,9 +1,10 @@
 from datetime import UTC, date, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.user.models import User
 from app.translate.models import Book, BookBookmark, BookPage, PageRevision, PipelineRun
 
 
@@ -108,6 +109,46 @@ class BookRepository:
         )
         return result.scalar_one_or_none()
 
+    async def admin_list(
+        self,
+        page: int,
+        size: int,
+        keyword: str | None,
+        status: str,
+    ) -> tuple[list[Book], int]:
+        conditions: list[ColumnElement[bool]] = [Book.del_yn.is_(False)]
+        if status != "all":
+            conditions.append(Book.status == status)
+        if keyword:
+            pattern = f"%{keyword}%"
+            conditions.append(
+                Book.title.ilike(pattern) | User.name.ilike(pattern) | User.email.ilike(pattern)
+            )
+
+        base = (
+            select(Book)
+            .join(User, User.id == Book.owner_user_id)
+            .options(selectinload(Book.owner), selectinload(Book.source_file))
+            .where(*conditions)
+            .order_by(Book.created_at.desc(), Book.id.desc())
+        )
+        total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
+        total: int = total_result.scalar_one()
+        result = await self.db.execute(base.offset((page - 1) * size).limit(size))
+        return list(result.scalars().all()), total
+
+    async def admin_get_detail(self, book_id: str) -> Book | None:
+        result = await self.db.execute(
+            select(Book)
+            .options(
+                selectinload(Book.owner),
+                selectinload(Book.source_file),
+                selectinload(Book.pages.and_(BookPage.del_yn.is_(False))),
+            )
+            .where(Book.id == book_id, Book.del_yn.is_(False))
+        )
+        return result.scalar_one_or_none()
+
 
 class BookPageRepository:
     def __init__(self, db: AsyncSession) -> None:
@@ -171,6 +212,31 @@ class PipelineRunRepository:
     async def get_by_id(self, run_id: int) -> PipelineRun | None:
         result = await self.db.execute(select(PipelineRun).where(PipelineRun.id == run_id))
         return result.scalar_one_or_none()
+
+    async def get_latest_by_book_ids(self, book_ids: list[str]) -> dict[str, PipelineRun]:
+        if not book_ids:
+            return {}
+        result = await self.db.execute(
+            select(PipelineRun)
+            .where(PipelineRun.book_id.in_(book_ids))
+            .order_by(
+                PipelineRun.book_id.asc(), PipelineRun.created_at.desc(), PipelineRun.id.desc()
+            )
+        )
+        latest: dict[str, PipelineRun] = {}
+        for run in result.scalars().all():
+            if run.book_id and run.book_id not in latest:
+                latest[run.book_id] = run
+        return latest
+
+    async def list_by_book(self, book_id: str, limit: int = 10) -> list[PipelineRun]:
+        result = await self.db.execute(
+            select(PipelineRun)
+            .where(PipelineRun.book_id == book_id)
+            .order_by(PipelineRun.created_at.desc(), PipelineRun.id.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())
 
 
 class BookBookmarkRepository:

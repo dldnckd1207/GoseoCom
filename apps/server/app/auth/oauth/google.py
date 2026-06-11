@@ -45,4 +45,12 @@ async def get_user_info(access_token: str) -> dict[str, object]:
             headers={"Authorization": f"Bearer {access_token}"},
         )
         response.raise_for_status()
-        return response.json()  # type: ignore[no-any-return]
+        data: dict[str, object] = response.json()
+        # email_verified: 필드 부재/파싱 불가 시 False로 안전 처리(계정 연동 금지)
+        return {
+            "id": str(data["id"]),
+            "email": data.get("email"),
+            "name": data.get("name"),
+            "picture": data.get("picture"),
+            "email_verified": data.get("verified_email") is True,
+        }

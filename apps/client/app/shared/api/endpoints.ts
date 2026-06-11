@@ -24,4 +24,11 @@ export const API_ENDPOINTS = {
     TRANSLATE_PUBLIC_DETAIL: (id: string) => `/api/v1/translate/public/${id}`,
     TRANSLATE_FAVORITE: (bookId: string) => `/api/v1/translate/${bookId}/favorite`,
     TRANSLATE_BOOKMARK: (bookId: string) => `/api/v1/translate/public/${bookId}/bookmark`,
+    LEARN_WORKSPACE: (bookId: string) => `/api/v1/learn/books/${bookId}`,
+    LEARN_CHAT: (bookId: string) => `/api/v1/learn/books/${bookId}/chat`,
+    LEARN_TUTOR: (bookId: string) => `/api/v1/learn/books/${bookId}/tutor`,
+    LEARN_SUMMARY: (bookId: string) => `/api/v1/learn/books/${bookId}/summary`,
+    LEARN_FLASHCARDS: (bookId: string) => `/api/v1/learn/books/${bookId}/flashcards`,
+    LEARN_FLASHCARD_REVIEW: (bookId: string) => `/api/v1/learn/books/${bookId}/flashcards/review`,
+    LEARN_QUIZ: (bookId: string) => `/api/v1/learn/books/${bookId}/quiz`,
 } as const;

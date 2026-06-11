@@ -118,9 +118,100 @@ class BookBookmarkResponse(BaseModel):
 
 
 class BookDropdownItemResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    # populate_by_name: service에서 book_id= 키워드로 생성하므로 alias(id)와 필드명 둘 다 허용
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     book_id: str = Field(validation_alias="id")
     title: str
     source_file_url: str | None = None
     created_at: datetime
+
+
+AdminTranslationStatus = Literal[
+    "all",
+    "PENDING",
+    "OCR_PROCESSING",
+    "OCR_COMPLETED",
+    "TRANSLATING",
+    "COMPLETED",
+    "FAILED",
+]
+
+
+class AdminTranslationListRequest(BaseModel):
+    page: int = Field(default=1, ge=1, description="페이지 번호", examples=[1])
+    size: int = Field(default=10, ge=1, le=100, description="페이지 크기", examples=[10])
+    keyword: str | None = Field(
+        default=None, max_length=100, description="검색어", examples=["홍길동"]
+    )
+    status: AdminTranslationStatus = Field(
+        default="all", description="번역 상태 필터", examples=["all"]
+    )
+
+
+class AdminTranslationSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    book_id: str = Field(..., description="번역 Book ID", examples=["BOOK_00000001"])
+    title: str = Field(..., description="번역 제목", examples=["고문서 번역"])
+    owner_name: str = Field(..., description="소유자 성명", examples=["홍길동"])
+    owner_is_self: bool = Field(..., description="현재 관리자 본인 소유 여부", examples=[False])
+    status: str = Field(..., description="번역 상태", examples=["FAILED"])
+    total_pages: int = Field(..., description="전체 페이지 수", examples=[1])
+    created_at: datetime = Field(..., description="생성일시")
+    latest_run_status: str | None = Field(
+        default=None, description="최근 실행 상태", examples=["FAILED"]
+    )
+    latest_run_error_msg: str | None = Field(
+        default=None, description="최근 실행 오류 메시지", examples=["번역 응답 파싱 실패"]
+    )
+    can_retry: bool = Field(..., description="재시도 가능 여부", examples=[True])
+
+
+class AdminTranslationPageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    page_no: int = Field(..., description="페이지 번호", examples=[1])
+    status: str = Field(..., description="페이지 처리 상태", examples=["FAILED"])
+    ocr_text: str | None = Field(default=None, description="OCR 텍스트")
+    literal_text: str | None = Field(default=None, description="직역 텍스트")
+    interpretive_text: str | None = Field(default=None, description="의역 텍스트")
+    has_ocr_text: bool = Field(..., description="OCR 텍스트 존재 여부", examples=[True])
+    has_literal_text: bool = Field(..., description="직역 텍스트 존재 여부", examples=[False])
+    has_interpretive_text: bool = Field(..., description="의역 텍스트 존재 여부", examples=[False])
+    ocr_engine: str | None = Field(default=None, description="OCR 엔진", examples=["GOOGLE_VISION"])
+    translator_engine: str | None = Field(
+        default=None, description="번역 엔진", examples=["GEMINI"]
+    )
+
+
+class AdminPipelineRunResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="PipelineRun ID", examples=[1])
+    trigger_type: str = Field(..., description="실행 구분", examples=["TRANSLATOR"])
+    status: str = Field(..., description="실행 상태", examples=["FAILED"])
+    started_at: datetime | None = Field(default=None, description="시작일시")
+    completed_at: datetime | None = Field(default=None, description="종료일시")
+    duration_ms: int | None = Field(default=None, description="소요 시간(ms)", examples=[60000])
+    error_msg: str | None = Field(default=None, description="오류 메시지")
+
+
+class AdminTranslationDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    book_id: str = Field(..., description="번역 Book ID", examples=["BOOK_00000001"])
+    title: str = Field(..., description="번역 제목", examples=["고문서 번역"])
+    owner_name: str = Field(..., description="소유자 성명", examples=["홍길동"])
+    owner_is_self: bool = Field(..., description="현재 관리자 본인 소유 여부", examples=[False])
+    status: str = Field(..., description="번역 상태", examples=["FAILED"])
+    book_type: str = Field(..., description="Book 유형", examples=["USER_CREATED"])
+    source_type: str = Field(..., description="원본 유형", examples=["IMAGE"])
+    total_pages: int = Field(..., description="전체 페이지 수", examples=[1])
+    source_file_url: str | None = Field(default=None, description="원본 파일 URL")
+    created_at: datetime = Field(..., description="생성일시")
+    updated_at: datetime = Field(..., description="수정일시")
+    can_retry: bool = Field(..., description="재시도 가능 여부", examples=[True])
+    retry_disabled_reason: str | None = Field(default=None, description="재시도 불가 사유")
+    pages: list[AdminTranslationPageResponse] = Field(..., description="페이지별 처리 상태")
+    pipeline_runs: list[AdminPipelineRunResponse] = Field(..., description="최근 실행 이력")

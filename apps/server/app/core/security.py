@@ -34,8 +34,10 @@ def create_access_token(
 
 def create_refresh_token_jwt(user_id: str) -> str:
     expire = datetime.now(UTC) + timedelta(days=settings.jwt_refresh_token_expire_days)
+    # jti: exp가 초 단위라 같은 유저가 같은 초에 발급받으면 토큰 원문이 완전히 같아져
+    # token_hash 중복 적재(MultipleResultsFound 500)가 발생한다. 항상 고유하도록 난수 부여.
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "type": "refresh"},
+        {"sub": user_id, "exp": expire, "type": "refresh", "jti": secrets.token_urlsafe(8)},
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )

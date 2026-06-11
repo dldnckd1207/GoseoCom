@@ -12,6 +12,10 @@ import { Modal } from '~/shared/ui/modal';
 import type { Route } from "./+types/root";
 import "./app.css";
 
+// OG 이미지는 절대 URL이어야 SNS 스크래퍼가 인식 — 배포 환경에선 VITE_SITE_URL 설정 필요
+const SITE_URL = import.meta.env.VITE_SITE_URL ?? "";
+const OG_IMAGE_URL = `${SITE_URL}/og-image.jpg`;
+
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -31,6 +35,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* OG/Twitter 태그 — 라우트 meta()가 root meta를 대체하므로 항상 렌더되도록 정적 배치 */}
+        <meta name="description" content="AI 기반 고서 번역 · 해석 · 학습 플랫폼" />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="해독 AI" />
+        <meta property="og:description" content="AI 기반 고서 번역 · 해석 · 학습 플랫폼" />
+        <meta property="og:image" content={OG_IMAGE_URL} />
+        <meta property="og:image:width" content="1871" />
+        <meta property="og:image:height" content="1871" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content="해독 AI" />
+        <meta name="twitter:description" content="AI 기반 고서 번역 · 해석 · 학습 플랫폼" />
+        <meta name="twitter:image" content={OG_IMAGE_URL} />
         <Meta />
         <Links />
       </head>

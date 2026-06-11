@@ -1,6 +1,7 @@
 """SFR-101: 댓글 CRUD 테스트"""
 
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from httpx import AsyncClient
@@ -34,26 +35,28 @@ async def _create_user(db: AsyncSession, user_level: int = 10) -> User:
     return user
 
 
-async def _create_post(auth_client: AsyncClient, token: str) -> dict:
+async def _create_post(auth_client: AsyncClient, token: str) -> dict[str, Any]:
     auth_client.cookies.set("access_token", token)
     resp = await auth_client.post(
         "/api/v1/posts",
         json={"board_code": "questions", "title": "댓글 테스트 게시글", "content": "본문"},
     )
     assert resp.status_code == 201
-    return resp.json()["body"]["data"]
+    data: dict[str, Any] = resp.json()["body"]["data"]
+    return data
 
 
 async def _create_comment(
     auth_client: AsyncClient, token: str, post_id: str, content: str = "댓글"
-) -> dict:
+) -> dict[str, Any]:
     auth_client.cookies.set("access_token", token)
     resp = await auth_client.post(
         f"/api/v1/posts/{post_id}/comments",
         json={"content": content},
     )
     assert resp.status_code == 201
-    return resp.json()["body"]["data"]
+    data: dict[str, Any] = resp.json()["body"]["data"]
+    return data
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +65,7 @@ async def _create_comment(
 
 
 @pytest.mark.asyncio
-async def test_list_comments_nested(auth_client: AsyncClient, db: AsyncSession):
+async def test_list_comments_nested(auth_client: AsyncClient, db: AsyncSession) -> None:
     """댓글 목록 → Nested 구조, root 기준 total"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -92,7 +95,7 @@ async def test_list_comments_nested(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_comment_count_increment(auth_client: AsyncClient, db: AsyncSession):
+async def test_comment_count_increment(auth_client: AsyncClient, db: AsyncSession) -> None:
     """댓글 작성 → post.comment_count +1"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -114,7 +117,7 @@ async def test_comment_count_increment(auth_client: AsyncClient, db: AsyncSessio
 
 
 @pytest.mark.asyncio
-async def test_comment_count_decrement(auth_client: AsyncClient, db: AsyncSession):
+async def test_comment_count_decrement(auth_client: AsyncClient, db: AsyncSession) -> None:
     """댓글 삭제 → post.comment_count -1"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -133,7 +136,7 @@ async def test_comment_count_decrement(auth_client: AsyncClient, db: AsyncSessio
 
 
 @pytest.mark.asyncio
-async def test_deleted_comment_placeholder(auth_client: AsyncClient, db: AsyncSession):
+async def test_deleted_comment_placeholder(auth_client: AsyncClient, db: AsyncSession) -> None:
     """root 댓글 삭제 후 목록에서 placeholder로 노출"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -157,7 +160,7 @@ async def test_deleted_comment_placeholder(auth_client: AsyncClient, db: AsyncSe
 
 
 @pytest.mark.asyncio
-async def test_update_comment(auth_client: AsyncClient, db: AsyncSession):
+async def test_update_comment(auth_client: AsyncClient, db: AsyncSession) -> None:
     """댓글 수정 → 200 UPDATED"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -179,7 +182,7 @@ async def test_update_comment(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_reply_depth_limit(auth_client: AsyncClient, db: AsyncSession):
+async def test_reply_depth_limit(auth_client: AsyncClient, db: AsyncSession) -> None:
     """depth=1 댓글에 대댓글 시도 → 403 REPLY_NOT_ALLOWED"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -204,7 +207,7 @@ async def test_reply_depth_limit(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_comment_wrong_post_id(auth_client: AsyncClient, db: AsyncSession):
+async def test_comment_wrong_post_id(auth_client: AsyncClient, db: AsyncSession) -> None:
     """다른 post_id로 댓글 수정 시도 → 404 COMMENT_NOT_FOUND"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -222,7 +225,7 @@ async def test_comment_wrong_post_id(auth_client: AsyncClient, db: AsyncSession)
 
 
 @pytest.mark.asyncio
-async def test_delete_comment_forbidden(auth_client: AsyncClient, db: AsyncSession):
+async def test_delete_comment_forbidden(auth_client: AsyncClient, db: AsyncSession) -> None:
     """타인 댓글 삭제 → 403 FORBIDDEN"""
     owner = await _create_user(db)
     other = await _create_user(db)
@@ -241,7 +244,7 @@ async def test_delete_comment_forbidden(auth_client: AsyncClient, db: AsyncSessi
 @pytest.mark.asyncio
 async def test_create_comment_initializes_filter_status_pending(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """댓글 등록 시 filter_status=PENDING, is_filtered=False 초기화 확인 (#120)"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)

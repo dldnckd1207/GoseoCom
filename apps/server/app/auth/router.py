@@ -20,7 +20,8 @@ from app.db.session import get_db
 router = APIRouter(prefix="/auth", tags=["auth"])
 users_router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
-_SECURE = settings.app_env == AppEnv.PRODUCTION
+# Secure 쿠키는 개발 환경(HTTP)에서만 비활성화. staging 등 비-DEVELOPMENT는 항상 True (점검보고서 #7)
+_SECURE = settings.app_env != AppEnv.DEVELOPMENT
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -74,6 +75,8 @@ async def _handle_oauth_callback(
         provider=provider_name,
         provider_user_id=user_info["id"],
         email=user_info.get("email"),  # TODO(#106): 카카오 비즈앱 전환 후 email 필수화
+        # 이메일 검증 신뢰 제공자만 기존 계정 연동 허용(점검보고서 #3). 부재 시 False.
+        email_verified=bool(user_info.get("email_verified")),
         name=user_info.get("name") or f"{provider_name.capitalize()}_{str(user_info['id'])[-6:]}",
         profile_image_url=user_info.get("picture"),
         request=request,

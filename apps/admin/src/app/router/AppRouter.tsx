@@ -26,6 +26,7 @@ import { DashboardPage } from "~/pages/dashboard/DashboardPage";
 import { LoginPage } from "~/pages/login/LoginPage";
 import { PlaceholderPage } from "~/pages/placeholder/PlaceholderPage";
 import { PostsPage } from "~/pages/posts/PostsPage";
+import { TranslationsPage } from "~/pages/translations/TranslationsPage";
 import { UsersPage } from "~/pages/users/UsersPage";
 
 import { cn } from "~/shared/lib/cn";
@@ -141,15 +142,7 @@ function ProtectedAdminShell() {
             <Route path="/boards" element={<BoardsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/posts" element={<PostsPage />} />
-            <Route
-              path="/translations"
-              element={
-                <PlaceholderPage
-                  title="번역 이력"
-                  description="OCR/번역 파이프라인 실행 이력과 실패 사유를 조회합니다."
-                />
-              }
-            />
+            <Route path="/translations" element={<TranslationsPage />} />
             <Route path="/comments" element={<FilteredCommentsPage />} />
             <Route
               path="/logs"

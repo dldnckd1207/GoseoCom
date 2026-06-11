@@ -76,6 +76,7 @@ export function FilteredCommentsPage() {
         comments={data?.items ?? []}
         isLoading={isLoading}
         isError={isError}
+        rowNumberStart={(data?.total ?? 0) - (page - 1) * (data?.size ?? 20)}
         onRetry={() => void refetch()}
         onApprove={handleApprove}
         onReject={handleReject}

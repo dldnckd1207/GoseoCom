@@ -57,7 +57,7 @@ def _set_admin_cookie(auth_client: AsyncClient, user: User) -> None:
 
 
 @pytest.mark.asyncio
-async def test_admin_list_users(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_users(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10, name="홍길동")
     _set_admin_cookie(auth_client, admin)
@@ -76,7 +76,7 @@ async def test_admin_list_users(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_admin_list_filters_use_and_block(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_filters_use_and_block(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=70)
     active = await _create_user(db, user_level=10)
     blocked = await _create_user(db, user_level=10)
@@ -104,7 +104,7 @@ async def test_admin_list_filters_use_and_block(auth_client: AsyncClient, db: As
 
 
 @pytest.mark.asyncio
-async def test_admin_update_status(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_update_status(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10)
     _set_admin_cookie(auth_client, admin)
@@ -126,7 +126,7 @@ async def test_admin_update_status(auth_client: AsyncClient, db: AsyncSession):
 @pytest.mark.asyncio
 async def test_admin_update_status_allows_unchanged_user_level_payload(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     """일반 관리자 상태 저장 — 프론트 전체 payload에 변경 없는 user_level이 포함돼도 허용"""
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10)
@@ -144,7 +144,7 @@ async def test_admin_update_status_allows_unchanged_user_level_payload(
 
 
 @pytest.mark.asyncio
-async def test_admin_update_level_forbidden(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_update_level_forbidden(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10)
     _set_admin_cookie(auth_client, admin)
@@ -159,7 +159,7 @@ async def test_admin_update_level_forbidden(auth_client: AsyncClient, db: AsyncS
 
 
 @pytest.mark.asyncio
-async def test_admin_force_withdraw_forbidden(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_force_withdraw_forbidden(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10)
     _set_admin_cookie(auth_client, admin)
@@ -175,7 +175,9 @@ async def test_admin_force_withdraw_forbidden(auth_client: AsyncClient, db: Asyn
 
 
 @pytest.mark.asyncio
-async def test_admin_cannot_update_system_admin_status(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_cannot_update_system_admin_status(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     admin = await _create_user(db, user_level=70)
     system_admin = await _create_user(db, user_level=100)
     _set_admin_cookie(auth_client, admin)
@@ -190,7 +192,7 @@ async def test_admin_cannot_update_system_admin_status(auth_client: AsyncClient,
 
 
 @pytest.mark.asyncio
-async def test_system_admin_update_level(auth_client: AsyncClient, db: AsyncSession):
+async def test_system_admin_update_level(auth_client: AsyncClient, db: AsyncSession) -> None:
     system_admin = await _create_user(db, user_level=100)
     user = await _create_user(db, user_level=10)
     _set_admin_cookie(auth_client, system_admin)
@@ -205,7 +207,7 @@ async def test_system_admin_update_level(auth_client: AsyncClient, db: AsyncSess
 
 
 @pytest.mark.asyncio
-async def test_self_update_is_rejected(auth_client: AsyncClient, db: AsyncSession):
+async def test_self_update_is_rejected(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=100)
     _set_admin_cookie(auth_client, admin)
 
@@ -219,7 +221,7 @@ async def test_self_update_is_rejected(auth_client: AsyncClient, db: AsyncSessio
 
 
 @pytest.mark.asyncio
-async def test_disable_revokes_refresh_tokens(auth_client: AsyncClient, db: AsyncSession):
+async def test_disable_revokes_refresh_tokens(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10)
     token = await _create_token(db, user.id)
@@ -237,7 +239,7 @@ async def test_disable_revokes_refresh_tokens(auth_client: AsyncClient, db: Asyn
 
 
 @pytest.mark.asyncio
-async def test_block_revokes_refresh_tokens(auth_client: AsyncClient, db: AsyncSession):
+async def test_block_revokes_refresh_tokens(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, user_level=70)
     user = await _create_user(db, user_level=10)
     token = await _create_token(db, user.id)
@@ -255,7 +257,7 @@ async def test_block_revokes_refresh_tokens(auth_client: AsyncClient, db: AsyncS
 
 
 @pytest.mark.asyncio
-async def test_system_admin_force_withdraw(auth_client: AsyncClient, db: AsyncSession):
+async def test_system_admin_force_withdraw(auth_client: AsyncClient, db: AsyncSession) -> None:
     system_admin = await _create_user(db, user_level=100)
     user = await _create_user(db, user_level=10)
     token = await _create_token(db, user.id)
@@ -283,7 +285,9 @@ async def test_system_admin_force_withdraw(auth_client: AsyncClient, db: AsyncSe
 
 
 @pytest.mark.asyncio
-async def test_include_deleted_lists_withdrawn_users(auth_client: AsyncClient, db: AsyncSession):
+async def test_include_deleted_lists_withdrawn_users(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     admin = await _create_user(db, user_level=70)
     withdrawn = await _create_user(db, user_level=10)
     withdrawn.del_yn = True

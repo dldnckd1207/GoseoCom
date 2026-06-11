@@ -1,7 +1,10 @@
-from pydantic import computed_field
+from pydantic import computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.common.enums import AppEnv, FileStorage, OcrEngine, TranslatorEngine
+
+# 운영 환경에서 사용을 금지하는 취약 시크릿 값
+_WEAK_SECRETS = {"change-me", ""}
 
 
 class Settings(BaseSettings):
@@ -12,7 +15,8 @@ class Settings(BaseSettings):
     )
 
     # 앱 공통
-    app_env: AppEnv = AppEnv.DEVELOPMENT
+    # 기본값은 안전한 PRODUCTION. 로컬 개발은 `APP_ENV=development`를 명시한다.
+    app_env: AppEnv = AppEnv.PRODUCTION
     app_secret_key: str = "change-me"
     app_cors_origins: str = "http://localhost:3000,http://localhost:3001"
     app_client_url: str = "http://localhost:3000"  # OAuth 로그인 완료 후 리다이렉트 URL
@@ -71,6 +75,8 @@ class Settings(BaseSettings):
     scheduler_comment_filter_batch_size: int = 20
 
     # 관리자
+    # 시드 부트스트랩 전용 — 최초 관리자 지정에만 사용한다(시드 마이그레이션이 읽음).
+    # 로그인 시 이메일 기반 자동 ADMIN 승격은 보안상 제거되었다(점검보고서 #3).
     initial_admin_emails: str = ""
 
     # AI 에이전트
@@ -85,7 +91,20 @@ class Settings(BaseSettings):
 
     @property
     def admin_emails(self) -> list[str]:
+        """시드 부트스트랩용 초기 관리자 이메일 목록 (런타임 로그인에서는 미사용)."""
         return [e.strip() for e in self.initial_admin_emails.split(",") if e.strip()]
+
+    @model_validator(mode="after")
+    def _validate_secrets(self) -> "Settings":
+        """운영 환경에서 기본/빈 시크릿 키 사용 시 기동을 실패시킨다."""
+        if self.app_env == AppEnv.PRODUCTION and (
+            self.jwt_secret_key in _WEAK_SECRETS or self.app_secret_key in _WEAK_SECRETS
+        ):
+            raise ValueError(
+                "운영 환경(APP_ENV=production)에서 기본/빈 시크릿 키를 사용할 수 없습니다. "
+                "JWT_SECRET_KEY와 APP_SECRET_KEY를 안전한 랜덤 값으로 설정하세요."
+            )
+        return self
 
 
 settings = Settings()

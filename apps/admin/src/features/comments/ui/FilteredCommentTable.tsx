@@ -8,6 +8,7 @@ interface Props {
   comments: AdminCommentItem[];
   isLoading: boolean;
   isError: boolean;
+  rowNumberStart: number;
   onRetry: () => void;
   onApprove: (commentId: string) => void;
   onReject: (commentId: string) => void;
@@ -18,6 +19,7 @@ export function FilteredCommentTable({
   comments,
   isLoading,
   isError,
+  rowNumberStart,
   onRetry,
   onApprove,
   onReject,
@@ -56,6 +58,7 @@ export function FilteredCommentTable({
       <table className="w-full min-w-[900px] text-left text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/40">
+            <th className="w-16 px-4 py-3 font-medium text-muted-foreground">순번</th>
             <th className="px-4 py-3 font-medium text-muted-foreground">작성자</th>
             <th className="px-4 py-3 font-medium text-muted-foreground">댓글 내용</th>
             <th className="px-4 py-3 font-medium text-muted-foreground">게시글</th>
@@ -65,8 +68,11 @@ export function FilteredCommentTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {comments.map((comment) => (
+          {comments.map((comment, index) => (
             <tr key={comment.id} className="hover:bg-muted/20 transition-colors">
+              <td className="px-4 py-3 text-muted-foreground tabular-nums">
+                {rowNumberStart - index}
+              </td>
               <td className="px-4 py-3 text-foreground">{comment.author_name}</td>
               <td className="px-4 py-3 max-w-[240px]">
                 <p className="truncate text-foreground" title={comment.content}>

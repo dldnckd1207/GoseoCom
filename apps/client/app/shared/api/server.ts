@@ -7,6 +7,14 @@ import type { ApiWrappedResponse } from './client';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 
+const _MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+
+// double-submit CSRF: 전달받은 cookie 헤더에서 csrf_token을 추출 (보안 #7)
+export function parseCsrfToken(cookie: string): string | undefined {
+    const match = cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : undefined;
+}
+
 type ServerFetchAuthMode = 'required' | 'optional' | 'action';
 
 export async function serverFetch<T>(
@@ -17,10 +25,15 @@ export async function serverFetch<T>(
 ): Promise<T> {
     const { auth = 'required' } = options;
     const cookie = request.headers.get('cookie') ?? '';
-    const res = await fetch(`${BASE_URL}${path}`, {
-        ...init,
-        headers: { cookie, 'Content-Type': 'application/json', ...init?.headers },
-    });
+    const method = (init?.method ?? 'GET').toUpperCase();
+    const headers: Record<string, string> = {
+        cookie,
+        'Content-Type': 'application/json',
+        ...(init?.headers as Record<string, string> | undefined),
+    };
+    const csrf = parseCsrfToken(cookie);
+    if (csrf && _MUTATING_METHODS.has(method)) headers['X-CSRF-Token'] = csrf;
+    const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
     if (res.status === 0 || res.status >= 502) {
         throw new ApiError('NETWORK_ERROR', '서버에 연결할 수 없습니다.', res.status);

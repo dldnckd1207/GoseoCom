@@ -21,6 +21,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.board.auto_reply_pipeline import run_auto_reply_batch
 from app.board.models import Board, Comment, Post
@@ -45,7 +46,7 @@ async def _ensure_sample_image() -> str:
     return ""
 
 
-async def _create_test_board(db, *, pipeline_enabled: bool) -> Board:
+async def _create_test_board(db: AsyncSession, *, pipeline_enabled: bool) -> Board:
     now = datetime.now(UTC)
     board = Board(
         id=await next_id("BRD_", db),
@@ -82,7 +83,7 @@ async def _create_test_board(db, *, pipeline_enabled: bool) -> Board:
     return board
 
 
-async def _create_test_user(db) -> User:
+async def _create_test_user(db: AsyncSession) -> User:
     now = datetime.now(UTC)
     user_id = await next_id("USR_", db)
     user = User(
@@ -102,7 +103,9 @@ async def _create_test_user(db) -> User:
     return user
 
 
-async def _create_test_post(db, board_id: str, user_id: str, *, book_id=None) -> Post:
+async def _create_test_post(
+    db: AsyncSession, board_id: str, user_id: str, *, book_id: str | None = None
+) -> Post:
     now = datetime.now(UTC) - __import__("datetime").timedelta(minutes=1)
     post = Post(
         id=await next_id("POST_", db),
@@ -125,7 +128,7 @@ async def _create_test_post(db, board_id: str, user_id: str, *, book_id=None) ->
     return post
 
 
-async def _attach_image(db, post_id: str, user_id: str, local_path: str) -> None:
+async def _attach_image(db: AsyncSession, post_id: str, user_id: str, local_path: str) -> None:
     now = datetime.now(UTC)
     file = File(
         id=await next_id("FILE_", db),
@@ -161,7 +164,7 @@ async def _attach_image(db, post_id: str, user_id: str, local_path: str) -> None
     await db.commit()
 
 
-async def _print_result(db, post_id: str, scenario: str) -> None:
+async def _print_result(db: AsyncSession, post_id: str, scenario: str) -> None:
     post_r = await db.execute(select(Post).where(Post.id == post_id))
     post = post_r.scalar_one()
 

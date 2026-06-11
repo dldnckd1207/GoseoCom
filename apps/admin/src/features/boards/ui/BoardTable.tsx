@@ -8,7 +8,7 @@ interface BoardTableProps {
   boards: AdminBoard[];
   isLoading: boolean;
   isError: boolean;
-  startIndex: number;
+  rowNumberStart: number;
   onRetry: () => void;
   onEdit: (board: AdminBoard) => void;
   onManageCategories: (board: AdminBoard) => void;
@@ -20,7 +20,7 @@ export function BoardTable({
   boards,
   isLoading,
   isError,
-  startIndex,
+  rowNumberStart,
   onRetry,
   onEdit,
   onManageCategories,
@@ -66,7 +66,7 @@ export function BoardTable({
           {boards.map((board, index) => (
             <tr key={board.id} className="border-b border-border last:border-b-0">
               <td className="px-4 py-3 text-muted-foreground tabular-nums">
-                {startIndex + index + 1}
+                {rowNumberStart - index}
               </td>
               <td className="px-4 py-3 font-mono text-xs">{board.board_code}</td>
               <td className="px-4 py-3">

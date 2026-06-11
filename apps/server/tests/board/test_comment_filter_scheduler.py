@@ -111,7 +111,7 @@ async def _create_comment(
 
 
 @pytest.mark.asyncio
-async def test_find_pending_excludes_ai(db: AsyncSession):
+async def test_find_pending_excludes_ai(db: AsyncSession) -> None:
     """AI 생성 댓글은 PENDING 목록에서 제외"""
     user = await _create_user(db)
     post = await _create_board_and_post(db, user.id)
@@ -128,7 +128,7 @@ async def test_find_pending_excludes_ai(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_process_comment_flagged(db: AsyncSession):
+async def test_process_comment_flagged(db: AsyncSession) -> None:
     """악성 판별 시 FLAGGED + is_filtered=True 업데이트"""
     user = await _create_user(db)
     post = await _create_board_and_post(db, user.id)
@@ -148,7 +148,7 @@ async def test_process_comment_flagged(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_process_comment_clean(db: AsyncSession):
+async def test_process_comment_clean(db: AsyncSession) -> None:
     """정상 판별 시 CLEAN 업데이트"""
     user = await _create_user(db)
     post = await _create_board_and_post(db, user.id)
@@ -167,7 +167,7 @@ async def test_process_comment_clean(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_process_comment_api_error_keeps_pending(db: AsyncSession):
+async def test_process_comment_api_error_keeps_pending(db: AsyncSession) -> None:
     """Gemini API 오류 시 PENDING 유지"""
     user = await _create_user(db)
     post = await _create_board_and_post(db, user.id)
@@ -184,7 +184,7 @@ async def test_process_comment_api_error_keeps_pending(db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_find_pending_respects_limit(db: AsyncSession):
+async def test_find_pending_respects_limit(db: AsyncSession) -> None:
     """배치 사이즈 limit 적용 확인"""
     user = await _create_user(db)
     post = await _create_board_and_post(db, user.id)

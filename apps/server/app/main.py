@@ -3,12 +3,12 @@ import contextlib
 import logging
 import logging.config
 import logging.handlers
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import update
@@ -26,9 +26,12 @@ from app.board.post_router import board_upload_router, post_router
 from app.board.router import router as board_router
 from app.config import settings
 from app.core.common.enums import AppEnv
+from app.core.csrf import CSRFMiddleware
 from app.core.files.router import router as files_router
 from app.core.user.admin_router import admin_router as user_admin_router
 from app.db.session import AsyncSessionLocal
+from app.learn.router import router as learn_router
+from app.translate.admin_router import admin_router as translate_admin_router
 from app.translate.models import Book, BookPage, PipelineRun
 from app.translate.router import router as translate_router
 
@@ -116,14 +119,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await filter_task
 
 
+# 운영 환경에서는 Swagger/ReDoc/OpenAPI 스키마를 노출하지 않는다.
+_is_prod = settings.app_env == AppEnv.PRODUCTION
+
 app = FastAPI(
     title="Haedok AI API",
     description="한국 고서 OCR + AI 번역 서비스",
     version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
+    openapi_url=None if _is_prod else "/openapi.json",
     lifespan=lifespan,
 )
+
+# CSRF는 CORS보다 먼저 등록 → CORS가 가장 바깥(에러 응답에도 CORS 헤더 부여).
+# 개발 환경에서는 비활성화(교차 출처 SSR 편의). staging/prod에서만 enforce.
+app.add_middleware(CSRFMiddleware, enabled=settings.app_env != AppEnv.DEVELOPMENT)
 
 app.add_middleware(
     CORSMiddleware,
@@ -132,6 +143,22 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def no_cache_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """API/Auth 응답 브라우저 캐싱 금지.
+
+    Cache-Control 부재 시 브라우저가 GET 응답을 디스크 캐시에서 재사용해
+    오래된 API 데이터가 보이거나, 캐시된 OAuth 리다이렉트의 만료된 state로
+    INVALID_STATE가 발생한다. /files/ 등 정적 리소스는 캐싱 이점 유지를 위해 제외.
+    """
+    response = await call_next(request)
+    if request.url.path.startswith(("/api/", "/auth/")):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.exception_handler(HTTPException)
@@ -162,6 +189,8 @@ app.include_router(comment_router)
 app.include_router(admin_comment_router)
 app.include_router(files_router)
 app.include_router(translate_router)
+app.include_router(translate_admin_router)
+app.include_router(learn_router)
 
 # 개발용 라우터 (dev 환경만)
 if settings.app_env == AppEnv.DEVELOPMENT:

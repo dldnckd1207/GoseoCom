@@ -34,7 +34,7 @@ async def _create_user(db: AsyncSession, user_level: int = 10) -> User:
 
 
 @pytest.mark.asyncio
-async def test_upload_file(auth_client: AsyncClient, db: AsyncSession):
+async def test_upload_file(auth_client: AsyncClient, db: AsyncSession) -> None:
     """파일 업로드 → 201, FILE_ ID 발급"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -53,7 +53,7 @@ async def test_upload_file(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_upload_unauthenticated(auth_client: AsyncClient):
+async def test_upload_unauthenticated(auth_client: AsyncClient) -> None:
     """비로그인 파일 업로드 → 401"""
     resp = await auth_client.post(
         "/api/v1/boards/translation/uploads",
@@ -63,7 +63,7 @@ async def test_upload_unauthenticated(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_upload_board_not_found(auth_client: AsyncClient, db: AsyncSession):
+async def test_upload_board_not_found(auth_client: AsyncClient, db: AsyncSession) -> None:
     """없는 게시판 파일 업로드 → 404 BOARD_NOT_FOUND"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -83,7 +83,7 @@ async def test_upload_board_not_found(auth_client: AsyncClient, db: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_general_upload_201(auth_client: AsyncClient, db: AsyncSession):
+async def test_general_upload_201(auth_client: AsyncClient, db: AsyncSession) -> None:
     """공용 파일 업로드 → 201, FILE_ ID 반환"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -100,7 +100,7 @@ async def test_general_upload_201(auth_client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_general_upload_unauthenticated(auth_client: AsyncClient):
+async def test_general_upload_unauthenticated(auth_client: AsyncClient) -> None:
     """미인증 공용 업로드 → 401"""
     resp = await auth_client.post(
         "/api/v1/uploads",
@@ -110,7 +110,7 @@ async def test_general_upload_unauthenticated(auth_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_general_upload_size_exceeded(auth_client: AsyncClient, db: AsyncSession):
+async def test_general_upload_size_exceeded(auth_client: AsyncClient, db: AsyncSession) -> None:
     """10MB 초과 파일 → 400 FILE_SIZE_EXCEEDED"""
     user = await _create_user(db)
     token = create_access_token(user.id, user_level=10, user_name=user.name)
@@ -123,3 +123,75 @@ async def test_general_upload_size_exceeded(auth_client: AsyncClient, db: AsyncS
     )
     assert resp.status_code == 400
     assert resp.json()["header"]["code"] == "FILE_SIZE_EXCEEDED"
+
+
+# ---------------------------------------------------------------------------
+# 저장형 XSS 차단 (점검보고서 #4)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("filename", "content_type"),
+    [
+        ("evil.html", "text/html"),
+        ("evil.svg", "image/svg+xml"),
+        ("evil.xhtml", "application/xhtml+xml"),
+        # content_type을 위장해도 확장자로 차단
+        ("evil.html", "application/octet-stream"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_general_upload_blocks_dangerous_types(
+    auth_client: AsyncClient, db: AsyncSession, filename: str, content_type: str
+) -> None:
+    """HTML/SVG 등 스크립트 실행 가능 타입 업로드 → 400 BLOCKED_FILE_TYPE"""
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+
+    resp = await auth_client.post(
+        "/api/v1/uploads",
+        files={"file": (filename, io.BytesIO(b"<script>alert(1)</script>"), content_type)},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["header"]["code"] == "BLOCKED_FILE_TYPE"
+
+
+@pytest.mark.asyncio
+async def test_serve_image_inline_with_nosniff(auth_client: AsyncClient, db: AsyncSession) -> None:
+    """이미지 서빙 → nosniff + Content-Disposition inline (화이트리스트)"""
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+
+    up = await auth_client.post(
+        "/api/v1/uploads",
+        files={"file": ("photo.png", io.BytesIO(b"\x89PNG\r\n\x1a\n"), "image/png")},
+    )
+    uuid = up.json()["body"]["data"]["url_path"].split("/")[-1]
+
+    resp = await auth_client.get(f"/files/{uuid}")
+    assert resp.status_code == 200
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["content-disposition"].startswith("inline")
+
+
+@pytest.mark.asyncio
+async def test_serve_non_whitelisted_forces_attachment(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
+    """화이트리스트 외 타입 서빙 → 강제 다운로드(attachment) + nosniff"""
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+
+    up = await auth_client.post(
+        "/api/v1/uploads",
+        files={"file": ("data.bin", io.BytesIO(b"binarydata"), "application/octet-stream")},
+    )
+    uuid = up.json()["body"]["data"]["url_path"].split("/")[-1]
+
+    resp = await auth_client.get(f"/files/{uuid}")
+    assert resp.status_code == 200
+    assert resp.headers["x-content-type-options"] == "nosniff"
+    assert resp.headers["content-disposition"].startswith("attachment")

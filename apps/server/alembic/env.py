@@ -1,6 +1,7 @@
 import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.auth.models
@@ -11,6 +12,7 @@ import app.core.files.models
 # 모든 모델을 여기서 import 해야 Alembic이 감지함
 # (모델 파일 추가 시 여기에 import 추가)
 import app.core.user.models
+import app.learn.models
 import app.translate.models  # noqa: F401
 from alembic import context
 from app.config import settings
@@ -37,7 +39,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection):
+def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()

@@ -114,7 +114,9 @@ def _token(user: User) -> str:
 
 
 @pytest.mark.asyncio
-async def test_admin_list_posts_filters_deleted_status(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_list_posts_filters_deleted_status(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     admin = await _create_user(db, level=70)
     user = await _create_user(db, level=10)
     board = await _create_board(db)
@@ -153,7 +155,7 @@ async def test_admin_list_posts_filters_deleted_status(auth_client: AsyncClient,
 @pytest.mark.asyncio
 async def test_admin_list_posts_filters_board_author_notice_keyword(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     admin = await _create_user(db, level=70)
     user = await _create_user(db, level=10)
     board = await _create_board(db)
@@ -188,7 +190,7 @@ async def test_admin_list_posts_filters_board_author_notice_keyword(
 @pytest.mark.asyncio
 async def test_admin_get_post_does_not_increment_view_count(
     auth_client: AsyncClient, db: AsyncSession
-):
+) -> None:
     admin = await _create_user(db, level=70)
     user = await _create_user(db, level=10)
     board = await _create_board(db)
@@ -204,7 +206,7 @@ async def test_admin_get_post_does_not_increment_view_count(
 
 
 @pytest.mark.asyncio
-async def test_admin_get_deleted_post(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_get_deleted_post(auth_client: AsyncClient, db: AsyncSession) -> None:
     """관리자 상세 조회는 삭제된 게시글도 조회한다."""
     admin = await _create_user(db, level=70)
     user = await _create_user(db, level=10)
@@ -222,7 +224,7 @@ async def test_admin_get_deleted_post(auth_client: AsyncClient, db: AsyncSession
 
 
 @pytest.mark.asyncio
-async def test_admin_delete_and_restore_post(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_delete_and_restore_post(auth_client: AsyncClient, db: AsyncSession) -> None:
     admin = await _create_user(db, level=70)
     user = await _create_user(db, level=10)
     board = await _create_board(db)
@@ -266,7 +268,9 @@ async def test_admin_delete_and_restore_post(auth_client: AsyncClient, db: Async
 
 
 @pytest.mark.asyncio
-async def test_admin_delete_already_deleted_post(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_delete_already_deleted_post(
+    auth_client: AsyncClient, db: AsyncSession
+) -> None:
     """삭제된 게시글 재삭제 → 400 POST_ALREADY_DELETED"""
     admin = await _create_user(db, level=70)
     user = await _create_user(db, level=10)
@@ -281,7 +285,7 @@ async def test_admin_delete_already_deleted_post(auth_client: AsyncClient, db: A
 
 
 @pytest.mark.asyncio
-async def test_admin_restore_active_post(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_restore_active_post(auth_client: AsyncClient, db: AsyncSession) -> None:
     """정상 게시글 복구 요청 → 400 POST_NOT_DELETED"""
     admin = await _create_user(db, level=70)
     user = await _create_user(db, level=10)
@@ -296,7 +300,7 @@ async def test_admin_restore_active_post(auth_client: AsyncClient, db: AsyncSess
 
 
 @pytest.mark.asyncio
-async def test_admin_posts_forbidden_for_user(auth_client: AsyncClient, db: AsyncSession):
+async def test_admin_posts_forbidden_for_user(auth_client: AsyncClient, db: AsyncSession) -> None:
     user = await _create_user(db, level=10)
 
     auth_client.cookies.set("access_token", _token(user))
