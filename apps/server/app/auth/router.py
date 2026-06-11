@@ -24,13 +24,14 @@ _SECURE = settings.app_env == AppEnv.PRODUCTION
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
-    response.set_cookie(
-        "access_token", access_token, max_age=3600, httponly=True, samesite="lax", secure=_SECURE
-    )
+    # TODO: "로그인 상태 유지" 옵션 구현 시 remember_me=True일 때만 max_age 적용
+    # FIXME: max_age 설정 시 브라우저 종료 후에도 쿠키가 유지되어 공용 PC 보안 위험
+    # access_token_max_age = 3600            # 1시간
+    # refresh_token_max_age = 60 * 60 * 24 * 30  # 30일
+    response.set_cookie("access_token", access_token, httponly=True, samesite="lax", secure=_SECURE)
     response.set_cookie(
         "refresh_token",
         refresh_token,
-        max_age=60 * 60 * 24 * 30,
         httponly=True,
         samesite="lax",
         secure=_SECURE,
@@ -42,6 +43,12 @@ def _clear_auth_cookies(response: Response) -> None:
     response.delete_cookie("refresh_token")
 
 
+def _resolve_oauth_redirect(redirect: str | None) -> str:
+    if redirect == "admin":
+        return settings.app_admin_url
+    return settings.app_client_url
+
+
 async def _handle_oauth_callback(
     code: str,
     state: str,
@@ -50,6 +57,7 @@ async def _handle_oauth_callback(
     provider_module: ModuleType,
     request: Request,
     db: AsyncSession,
+    oauth_redirect: str | None,
 ) -> RedirectResponse:
     """OAuth 콜백 공통 처리 — state 검증, 토큰 교환, 유저 UPSERT, 쿠키 발급"""
     if not oauth_state or oauth_state != state:
@@ -71,8 +79,9 @@ async def _handle_oauth_callback(
         request=request,
     )
 
-    redirect = RedirectResponse(url=settings.app_client_url, status_code=302)
+    redirect = RedirectResponse(url=oauth_redirect or settings.app_client_url, status_code=302)
     redirect.delete_cookie("oauth_state")
+    redirect.delete_cookie("oauth_redirect")
     _set_auth_cookies(redirect, access_token, refresh_token)
     return redirect
 
@@ -179,10 +188,17 @@ _ERR_403_FORBIDDEN = {
     description="Google 로그인 페이지로 리다이렉트합니다. state 쿠키를 발급하여 CSRF를 방지합니다.",
     tags=["auth"],
 )
-async def google_login() -> RedirectResponse:
+async def google_login(redirect: str | None = None) -> RedirectResponse:
     state = secrets.token_urlsafe(32)
     response = RedirectResponse(url=google.get_authorization_url(state), status_code=302)
     response.set_cookie("oauth_state", state, max_age=600, httponly=True, samesite="lax")
+    response.set_cookie(
+        "oauth_redirect",
+        _resolve_oauth_redirect(redirect),
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+    )
     return response
 
 
@@ -197,9 +213,12 @@ async def google_callback(
     state: str,
     request: Request,
     oauth_state: Annotated[str | None, Cookie()] = None,
+    oauth_redirect: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
-    return await _handle_oauth_callback(code, state, oauth_state, "GOOGLE", google, request, db)
+    return await _handle_oauth_callback(
+        code, state, oauth_state, "GOOGLE", google, request, db, oauth_redirect
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -213,10 +232,17 @@ async def google_callback(
     description="Kakao 로그인 페이지로 리다이렉트합니다. state 쿠키를 발급하여 CSRF를 방지합니다.",
     tags=["auth"],
 )
-async def kakao_login() -> RedirectResponse:
+async def kakao_login(redirect: str | None = None) -> RedirectResponse:
     state = secrets.token_urlsafe(32)
     response = RedirectResponse(url=kakao.get_authorization_url(state), status_code=302)
     response.set_cookie("oauth_state", state, max_age=600, httponly=True, samesite="lax")
+    response.set_cookie(
+        "oauth_redirect",
+        _resolve_oauth_redirect(redirect),
+        max_age=600,
+        httponly=True,
+        samesite="lax",
+    )
     return response
 
 
@@ -231,9 +257,12 @@ async def kakao_callback(
     state: str,
     request: Request,
     oauth_state: Annotated[str | None, Cookie()] = None,
+    oauth_redirect: Annotated[str | None, Cookie()] = None,
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
-    return await _handle_oauth_callback(code, state, oauth_state, "KAKAO", kakao, request, db)
+    return await _handle_oauth_callback(
+        code, state, oauth_state, "KAKAO", kakao, request, db, oauth_redirect
+    )
 
 
 # ---------------------------------------------------------------------------

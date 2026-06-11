@@ -6,9 +6,12 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.board.models import Board
+from app.board.models import Board, BoardCategory
 from app.board.repository import BoardRepository
 from app.board.schemas import (
+    AdminBoardCategoryCreateRequest,
+    AdminBoardCategoryResponse,
+    AdminBoardCategoryUpdateRequest,
     AdminBoardCreateRequest,
     AdminBoardListRequest,
     AdminBoardResponse,
@@ -115,6 +118,7 @@ class BoardService:
             notice_yn=req.notice_yn,
             reply_yn=req.reply_yn,
             comment_yn=req.comment_yn,
+            category_yn=req.category_yn,
             attach_yn=req.attach_yn,
             attach_ext=req.attach_ext,
             attach_size=req.attach_size,
@@ -160,13 +164,76 @@ class BoardService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"code": "BOARD_NOT_FOUND", "message": "게시판을 찾을 수 없습니다."},
             )
-        if await self.repo.has_posts(board_id):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={
-                    "code": "BOARD_HAS_POSTS",
-                    "message": "게시글이 있는 게시판은 삭제할 수 없습니다.",
-                },
-            )
         await self.repo.soft_delete(board, deleted_by=user_id)
         await self.db.commit()
+
+    async def admin_list_categories(self, board_id: str) -> list[AdminBoardCategoryResponse]:
+        board = await self._get_admin_board_or_404(board_id)
+        categories = await self.repo.admin_list_categories(board.id)
+        return [AdminBoardCategoryResponse.model_validate(c) for c in categories]
+
+    async def admin_create_category(
+        self, board_id: str, req: AdminBoardCategoryCreateRequest, user_id: str
+    ) -> AdminBoardCategoryResponse:
+        board = await self._get_admin_board_or_404(board_id)
+        now = datetime.now(UTC)
+        category = BoardCategory(
+            id=await next_id("BCAT_", self.db),
+            board_id=board.id,
+            category_name=req.category_name,
+            sort_order=req.sort_order,
+            use_yn=req.use_yn,
+            created_at=now,
+            created_by=user_id,
+            updated_at=now,
+            updated_by=user_id,
+        )
+        created = await self.repo.create_category(category)
+        await self.db.commit()
+        await self.db.refresh(created)
+        return AdminBoardCategoryResponse.model_validate(created)
+
+    async def admin_update_category(
+        self,
+        board_id: str,
+        category_id: str,
+        req: AdminBoardCategoryUpdateRequest,
+        user_id: str,
+    ) -> AdminBoardCategoryResponse:
+        await self._get_admin_board_or_404(board_id)
+        category = await self.repo.admin_get_category(board_id, category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "CATEGORY_NOT_FOUND", "message": "카테고리를 찾을 수 없습니다."},
+            )
+        update_fields = req.model_dump(exclude_none=True)
+        for field, value in update_fields.items():
+            setattr(category, field, value)
+        category.updated_at = datetime.now(UTC)
+        category.updated_by = user_id
+
+        updated = await self.repo.update_category(category)
+        await self.db.commit()
+        await self.db.refresh(updated)
+        return AdminBoardCategoryResponse.model_validate(updated)
+
+    async def admin_delete_category(self, board_id: str, category_id: str, user_id: str) -> None:
+        await self._get_admin_board_or_404(board_id)
+        category = await self.repo.admin_get_category(board_id, category_id)
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "CATEGORY_NOT_FOUND", "message": "카테고리를 찾을 수 없습니다."},
+            )
+        await self.repo.soft_delete_category(category, deleted_by=user_id)
+        await self.db.commit()
+
+    async def _get_admin_board_or_404(self, board_id: str) -> Board:
+        board = await self.repo.get_by_id(board_id)
+        if not board:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "BOARD_NOT_FOUND", "message": "게시판을 찾을 수 없습니다."},
+            )
+        return board

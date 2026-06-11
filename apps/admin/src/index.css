@@ -1,0 +1,100 @@
+@import "tailwindcss";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+}
+
+:root {
+  --background: #f7f8fb;
+  --foreground: #111318;
+  --card: #ffffff;
+  --card-foreground: #111318;
+  --popover: #ffffff;
+  --popover-foreground: #111318;
+  --primary: #111318;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f6;
+  --secondary-foreground: #20242c;
+  --muted: #eef1f6;
+  --muted-foreground: #626976;
+  --accent: #e6ebf2;
+  --accent-foreground: #111318;
+  --destructive: #c2410c;
+  --destructive-foreground: #ffffff;
+  --border: #d9dee8;
+  --input: #cbd3df;
+  --ring: #5b7fa8;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ffffff;
+  --card: #191919;
+  --card-foreground: #ffffff;
+  --popover: #191919;
+  --popover-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #0a0a0a;
+  --secondary: #2a2e35;
+  --secondary-foreground: #dadbdf;
+  --muted: #24272d;
+  --muted-foreground: #a3a7ae;
+  --accent: #212327;
+  --accent-foreground: #ffffff;
+  --destructive: #ff7a17;
+  --destructive-foreground: #0a0a0a;
+  --border: #363a3f;
+  --input: #363a3f;
+  --ring: #a0c3ec;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply border-border bg-secondary text-foreground placeholder:text-muted-foreground;
+  }
+}

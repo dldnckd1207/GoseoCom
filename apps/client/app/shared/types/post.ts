@@ -1,3 +1,5 @@
+import type { KeywordItem } from './translate';
+
 // ── 공통 페이지네이션 응답 ────────────────────────────────────────────────────
 
 export type PageResult<T> = {
@@ -33,6 +35,9 @@ export type BoardSummary = {
     board_group: string | null;
     sort_order: number;
     use_yn: boolean;
+    attach_yn: boolean;
+    attach_ext: string | null;
+    attach_size: number;
 };
 
 export type PostSummary = {
@@ -46,6 +51,24 @@ export type PostSummary = {
     view_count: number;
     comment_count: number;
     created_at: string;
+    category_id: string | null;
+    category_name: string | null;
+};
+
+export type PostBookPage = {
+    page_no: number;
+    ocr_text: string | null;
+    literal_text: string | null;
+    interpretive_text: string | null;
+};
+
+export type PostBookData = {
+    book_id: string;
+    title: string;
+    source_file_url: string | null;
+    summary_text: string | null;
+    keywords: KeywordItem[] | null;
+    pages: PostBookPage[];
 };
 
 export type PostDetail = {
@@ -66,6 +89,9 @@ export type PostDetail = {
     files: FileItem[];
     created_at: string;
     updated_at: string;
+    category_id: string | null;
+    category_name: string | null;
+    book: PostBookData | null;
 };
 
 export type CommentItem = {
@@ -75,6 +101,8 @@ export type CommentItem = {
     author_name: string | null;
     is_ai_gen: boolean;
     is_deleted: boolean;
+    is_filtered: boolean;
+    filter_reason: string | null;
     parent_id: string | null;
     depth: number;
     content: string;

@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.board.models import Comment
@@ -68,3 +68,25 @@ class CommentRepository:
         comment.deleted_at = now
         comment.deleted_by = deleted_by
         await self.db.flush()
+
+    async def list_flagged_admin(
+        self, keyword: str | None, page: int, size: int
+    ) -> tuple[list[Comment], int]:
+        """FLAGGED 댓글 목록 — keyword: content 또는 author_name ILIKE."""
+        base = select(Comment).where(
+            Comment.filter_status == "FLAGGED",
+            Comment.del_yn.is_(False),
+        )
+        if keyword:
+            base = base.where(
+                or_(
+                    Comment.content.ilike(f"%{keyword}%"),
+                    Comment.author_name.ilike(f"%{keyword}%"),
+                )
+            )
+        total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
+        total: int = total_result.scalar_one()
+        result = await self.db.execute(
+            base.order_by(Comment.filtered_at.desc()).offset((page - 1) * size).limit(size)
+        )
+        return list(result.scalars().all()), total

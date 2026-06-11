@@ -1,3 +1,8 @@
+import asyncio
+import contextlib
+import logging
+import logging.config
+import logging.handlers
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -10,22 +15,66 @@ from sqlalchemy import update
 
 from app.auth.router import router as auth_router
 from app.auth.router import users_router
+from app.board.admin_comment_router import admin_comment_router
 from app.board.admin_router import admin_router as board_admin_router
+from app.board.auto_reply_pipeline import auto_reply_scheduler
+from app.board.comment_filter_scheduler import comment_filter_scheduler
 from app.board.comment_router import comment_router
+from app.board.models import Post
+from app.board.post_admin_router import admin_router as post_admin_router
 from app.board.post_router import board_upload_router, post_router
 from app.board.router import router as board_router
 from app.config import settings
 from app.core.common.enums import AppEnv
 from app.core.files.router import router as files_router
+from app.core.user.admin_router import admin_router as user_admin_router
 from app.db.session import AsyncSessionLocal
 from app.translate.models import Book, BookPage, PipelineRun
 from app.translate.router import router as translate_router
+
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": "%(asctime)s %(levelname)s %(name)s — %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            },
+        },
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+            },
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "filename": "logs/app.log",
+                "maxBytes": 10 * 1024 * 1024,
+                "backupCount": 5,
+                "formatter": "default",
+                "encoding": "utf-8",
+            },
+        },
+        "loggers": {
+            "app": {
+                "handlers": ["console", "file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+        "root": {
+            "handlers": ["console"],
+            "level": "WARNING",
+        },
+    }
+)
 
 _STALE_BOOK_STATUSES = ("PENDING", "OCR_PROCESSING", "TRANSLATING")
 
 
 async def _cleanup_stale_jobs() -> None:
-    """서버 재시작 시 중단된 번역 작업을 FAILED로 정리한다."""
+    """서버 재시작 시 중단된 작업을 FAILED로 정리한다."""
     now = datetime.now(UTC)
     ai_user = settings.ai_agent_user_id
     async with AsyncSessionLocal() as db:
@@ -44,13 +93,27 @@ async def _cleanup_stale_jobs() -> None:
             .where(PipelineRun.status.in_(("PENDING", "RUNNING")))
             .values(status="FAILED", error_msg="서버 재시작으로 인해 중단된 작업")
         )
+        # RUNNING 상태 자동 답변 게시글 → FAILED (PENDING은 다음 tick에서 정상 처리)
+        await db.execute(
+            update(Post)
+            .where(Post.auto_reply_status == "RUNNING")
+            .values(auto_reply_status="FAILED", updated_at=now, updated_by=ai_user)
+        )
         await db.commit()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await _cleanup_stale_jobs()
+    auto_reply_task = asyncio.create_task(auto_reply_scheduler())
+    filter_task = asyncio.create_task(comment_filter_scheduler())
     yield
+    auto_reply_task.cancel()
+    filter_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await auto_reply_task
+    with contextlib.suppress(asyncio.CancelledError):
+        await filter_task
 
 
 app = FastAPI(
@@ -89,11 +152,14 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 # 라우터 등록
 app.include_router(auth_router)
 app.include_router(users_router)
+app.include_router(user_admin_router)
 app.include_router(board_router)
 app.include_router(board_admin_router)
 app.include_router(post_router)
+app.include_router(post_admin_router)
 app.include_router(board_upload_router)
 app.include_router(comment_router)
+app.include_router(admin_comment_router)
 app.include_router(files_router)
 app.include_router(translate_router)
 

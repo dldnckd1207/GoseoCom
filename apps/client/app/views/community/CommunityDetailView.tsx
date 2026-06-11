@@ -2,9 +2,23 @@ import { useEffect, useState } from 'react';
 
 import { Link, useLoaderData, useFetcher } from 'react-router';
 
-import { ChevronLeft, MessageSquare, User as UserIcon } from 'lucide-react';
+import { ChevronLeft, MessageSquare, Paperclip, Pencil, Trash2, User as UserIcon } from 'lucide-react';
 
+import { PUBLIC_BASE_URL } from '~/shared/api/client';
+
+import { FilteredComment } from '~/features/community/ui/FilteredComment';
+import { getCommentAuthorName } from '~/shared/lib/comment';
 import { formatDate } from '~/shared/lib/date';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '~/shared/ui/dialog';
 
 import type { loader, action } from '~/routes/_layout.community.$id';
 
@@ -12,6 +26,9 @@ export function CommunityDetailView() {
     const { post, postId, accessDenied, comments, user } = useLoaderData<typeof loader>();
     const fetcher = useFetcher<typeof action>();
     const [comment, setComment] = useState('');
+
+    const isOwner = !!user && !!post && user.user_id === post.user_id;
+    const deleteFetcher = useFetcher<typeof action>();
 
     useEffect(() => {
         // fetcher 완료 후 입력 초기화 — setState in effect 규칙의 정당한 예외
@@ -72,22 +89,164 @@ export function CommunityDetailView() {
                                 <h1 className="text-[length:var(--text-page-title-mobile)] lg:text-[length:var(--text-page-title)] font-bold text-gray-900 mb-4">
                                     {post.title}
                                 </h1>
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                                    <div className="flex items-center gap-1">
-                                        <UserIcon className="w-4 h-4" aria-hidden />
-                                        <span>{post.author_name}</span>
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                                        <div className="flex items-center gap-1">
+                                            <UserIcon className="w-4 h-4" aria-hidden />
+                                            <span>{post.author_name}</span>
+                                        </div>
+                                        <span aria-hidden>•</span>
+                                        <span>{formatDate(post.created_at)}</span>
+                                        <span aria-hidden>•</span>
+                                        <span>조회 {post.view_count}</span>
+                                        {post.category_name && (
+                                            <>
+                                                <span aria-hidden>•</span>
+                                                <span className="inline-block bg-blue-50 text-blue-600 text-xs px-2 py-0.5 rounded-full font-medium">
+                                                    {post.category_name}
+                                                </span>
+                                            </>
+                                        )}
                                     </div>
-                                    <span aria-hidden>•</span>
-                                    <span>{formatDate(post.created_at)}</span>
-                                    <span aria-hidden>•</span>
-                                    <span>조회 {post.view_count}</span>
+                                    {isOwner && (
+                                        <div className="flex items-center gap-2">
+                                            <Link
+                                                to={`/community/${postId}/edit`}
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-600 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" aria-hidden />
+                                                수정
+                                            </Link>
+                                            <Dialog>
+                                                <DialogTrigger
+                                                    render={
+                                                        <button className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-red-600 rounded-lg border border-red-200 hover:bg-red-50 transition-colors">
+                                                            <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                                                            삭제
+                                                        </button>
+                                                    }
+                                                />
+                                                <DialogContent showCloseButton={false}>
+                                                    <DialogHeader>
+                                                        <DialogTitle>게시글 삭제</DialogTitle>
+                                                        <DialogDescription>
+                                                            정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <DialogFooter>
+                                                        {deleteFetcher.data?.ok === false && (
+                                                            <p className="w-full text-sm text-red-500 mb-1">{deleteFetcher.data.error}</p>
+                                                        )}
+                                                        <DialogClose
+                                                            render={
+                                                                <button className="px-4 py-2 text-sm font-medium text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors">
+                                                                    취소
+                                                                </button>
+                                                            }
+                                                        />
+                                                        <deleteFetcher.Form method="post">
+                                                            <input type="hidden" name="_action" value="delete" />
+                                                            <button
+                                                                type="submit"
+                                                                disabled={deleteFetcher.state !== 'idle'}
+                                                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                            >
+                                                                {deleteFetcher.state !== 'idle' ? '삭제 중...' : '삭제'}
+                                                            </button>
+                                                        </deleteFetcher.Form>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                            <div className="px-6 py-8">
+                            <div className="px-6 py-8 space-y-6">
                                 <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
                                     {post.content}
                                 </p>
+                                {post.files.length > 0 && (
+                                    <div className="space-y-3 pt-2 border-t border-gray-100">
+                                        {post.files.map((file) => {
+                                            const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(file.file_ext.toLowerCase());
+                                            const src = `${PUBLIC_BASE_URL}${file.url_path}`;
+                                            return isImage ? (
+                                                <img
+                                                    key={file.file_id}
+                                                    src={src}
+                                                    alt={file.original_name}
+                                                    className="max-w-full rounded-lg border border-gray-200"
+                                                />
+                                            ) : (
+                                                <a
+                                                    key={file.file_id}
+                                                    href={src}
+                                                    download={file.original_name}
+                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <Paperclip className="w-4 h-4" aria-hidden />
+                                                    {file.original_name}
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
+                            {post.book && (
+                                <div className="px-6 pb-8 space-y-4 border-t border-gray-100 pt-6">
+                                    <h3 className="text-base font-semibold text-gray-900">번역 이력</h3>
+                                    {post.book.source_file_url && (
+                                        <img
+                                            src={`${PUBLIC_BASE_URL}${post.book.source_file_url}`}
+                                            alt="원본 고서"
+                                            className="max-w-full rounded-lg border border-gray-200"
+                                        />
+                                    )}
+                                    {post.book.pages.map(page => (
+                                        <div key={page.page_no} className="space-y-3">
+                                            {page.ocr_text && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-700 mb-1">OCR 원문</h4>
+                                                    <pre className="whitespace-pre-wrap font-sans break-words text-sm text-gray-800 bg-gray-50 rounded-lg px-4 py-3">{page.ocr_text}</pre>
+                                                </div>
+                                            )}
+                                            {page.literal_text && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-700 mb-1">직역</h4>
+                                                    <pre className="whitespace-pre-wrap font-sans break-words text-sm text-gray-800 bg-gray-50 rounded-lg px-4 py-3">{page.literal_text}</pre>
+                                                </div>
+                                            )}
+                                            {page.interpretive_text && (
+                                                <div>
+                                                    <h4 className="text-sm font-medium text-gray-700 mb-1">의역</h4>
+                                                    <pre className="whitespace-pre-wrap font-sans break-words text-sm text-gray-800 bg-gray-50 rounded-lg px-4 py-3">{page.interpretive_text}</pre>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {post.book.summary_text && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-700 mb-1">요약</h4>
+                                            <pre className="whitespace-pre-wrap font-sans break-words text-sm text-gray-800 bg-gray-50 rounded-lg px-4 py-3">{post.book.summary_text}</pre>
+                                        </div>
+                                    )}
+                                    {(post.book.keywords?.length ?? 0) > 0 && (
+                                        <div>
+                                            <h4 className="text-sm font-medium text-gray-700 mb-2">키워드</h4>
+                                            <ul className="space-y-1">
+                                                {post.book.keywords!.map((k, i) => (
+                                                    <li key={i} className="text-sm text-gray-700">
+                                                        <span className="font-medium">{k.word}</span>
+                                                        {k.reading && <span className="text-gray-500"> ({k.reading})</span>}
+                                                        {k.meaning && <span className="text-gray-600"> — {k.meaning}</span>}
+                                                        {k.count && <span className="text-gray-400"> ({k.count}회)</span>}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </article>
 
                         <section
@@ -147,12 +306,16 @@ export function CommunityDetailView() {
                                                     <div className="flex items-center gap-2 mb-2">
                                                         <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
                                                             <UserIcon className="w-4 h-4 text-gray-500" aria-hidden />
-                                                            {c.author_name ?? '익명'}
+                                                            {getCommentAuthorName(c)}
                                                         </div>
                                                         <span className="text-sm text-gray-500" aria-hidden>•</span>
                                                         <span className="text-sm text-gray-500">{formatDate(c.created_at)}</span>
                                                     </div>
-                                                    <p className="text-gray-800 leading-relaxed">{c.content}</p>
+                                                    {c.is_filtered ? (
+                                                        <FilteredComment content={c.content} />
+                                                    ) : (
+                                                        <p className="text-gray-800 leading-relaxed whitespace-pre-wrap break-words">{c.content}</p>
+                                                    )}
                                                     {c.replies.length > 0 && (
                                                         <ul className="mt-3 pl-6 border-l-2 border-gray-100 space-y-3">
                                                             {c.replies.map(r => (
@@ -164,12 +327,16 @@ export function CommunityDetailView() {
                                                                             <div className="flex items-center gap-2 mb-1">
                                                                                 <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
                                                                                     <UserIcon className="w-3 h-3 text-gray-500" aria-hidden />
-                                                                                    {r.author_name ?? '익명'}
+                                                                                    {getCommentAuthorName(r)}
                                                                                 </div>
                                                                                 <span className="text-sm text-gray-500" aria-hidden>•</span>
                                                                                 <span className="text-sm text-gray-500">{formatDate(r.created_at)}</span>
                                                                             </div>
-                                                                            <p className="text-gray-800 text-sm leading-relaxed">{r.content}</p>
+                                                                            {r.is_filtered ? (
+                                                                                <FilteredComment content={r.content} />
+                                                                            ) : (
+                                                                                <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap break-words">{r.content}</p>
+                                                                            )}
                                                                         </>
                                                                     )}
                                                                 </li>

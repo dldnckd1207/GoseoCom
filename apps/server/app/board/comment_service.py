@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.board.comment_repository import CommentRepository
 from app.board.comment_schemas import (
+    AdminCommentListRequest,
+    AdminCommentResponse,
     CommentCreateRequest,
     CommentListRequest,
     CommentResponse,
@@ -36,6 +38,8 @@ def _to_response(comment: Comment, replies: list[CommentResponse] | None = None)
         author_name=None if is_deleted else comment.author_name,
         is_ai_gen=_is_ai_gen(comment.user_id),
         is_deleted=is_deleted,
+        is_filtered=comment.is_filtered,
+        filter_reason=comment.filter_reason,
         parent_id=comment.parent_id,
         depth=comment.depth,
         content=_PLACEHOLDER_CONTENT if is_deleted else comment.content,
@@ -149,6 +153,7 @@ class CommentService:
             parent_id=req.parent_id,
             depth=depth,
             content=req.content,
+            filter_status="PENDING",
             created_at=now,
             created_by=user_id,
             updated_at=now,
@@ -209,4 +214,88 @@ class CommentService:
 
         await self.comment_repo.soft_delete(comment, deleted_by=user_id)
         await self.post_repo.decrement_comment_count(post_id)
+        await self.db.commit()
+
+    # ── 관리자 ──────────────────────────────────────────────────────────────
+
+    async def admin_list_flagged(
+        self, req: AdminCommentListRequest
+    ) -> PageData[AdminCommentResponse]:
+        comments, total = await self.comment_repo.list_flagged_admin(
+            req.keyword, req.page, req.size
+        )
+        items: list[AdminCommentResponse] = []
+        for comment in comments:
+            post = await self.post_repo.get_by_id(comment.post_id)
+            board = await self.board_repo.get_by_id(post.board_id) if post else None
+            items.append(
+                AdminCommentResponse(
+                    id=comment.id,
+                    post_id=comment.post_id,
+                    post_title=post.title if post else "",
+                    board_name=board.board_name if board else "",
+                    user_id=comment.user_id,
+                    author_name=comment.author_name,
+                    content=comment.content,
+                    filter_reason=comment.filter_reason,
+                    filtered_at=comment.filtered_at,
+                    filter_reviewed_by=comment.filter_reviewed_by,
+                    created_at=comment.created_at,
+                )
+            )
+        return PageData(items=items, total=total, page=req.page, size=req.size)
+
+    async def admin_approve_comment(
+        self, comment_id: str, reviewer_id: str
+    ) -> AdminCommentResponse:
+        comment = await self.comment_repo.get_by_id(comment_id)
+        if not comment or comment.filter_status != "FLAGGED":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "COMMENT_NOT_FOUND",
+                    "message": "필터링된 댓글을 찾을 수 없습니다.",
+                },
+            )
+
+        now = datetime.now(UTC)
+        comment.is_filtered = False
+        comment.filter_status = "CLEAN"
+        comment.filter_reviewed_by = reviewer_id
+        comment.updated_at = now
+        comment.updated_by = reviewer_id
+
+        await self.db.commit()
+        await self.db.refresh(comment)
+
+        post = await self.post_repo.get_by_id(comment.post_id)
+        board = await self.board_repo.get_by_id(post.board_id) if post else None
+        return AdminCommentResponse(
+            id=comment.id,
+            post_id=comment.post_id,
+            post_title=post.title if post else "",
+            board_name=board.board_name if board else "",
+            user_id=comment.user_id,
+            author_name=comment.author_name,
+            content=comment.content,
+            filter_reason=comment.filter_reason,
+            filtered_at=comment.filtered_at,
+            filter_reviewed_by=comment.filter_reviewed_by,
+            created_at=comment.created_at,
+        )
+
+    async def admin_reject_comment(self, comment_id: str, reviewer_id: str) -> None:
+        comment = await self.comment_repo.get_by_id(comment_id)
+        if not comment or comment.filter_status != "FLAGGED":
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "code": "COMMENT_NOT_FOUND",
+                    "message": "필터링된 댓글을 찾을 수 없습니다.",
+                },
+            )
+
+        comment.filter_reviewed_by = reviewer_id
+        await self.comment_repo.soft_delete(comment, deleted_by=reviewer_id)
+        await self.post_repo.decrement_comment_count(comment.post_id)
         await self.db.commit()

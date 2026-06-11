@@ -51,8 +51,28 @@ export function meta({ data }: Route.MetaArgs) {
 export async function action({ params, request }: Route.ActionArgs) {
     const { id } = params;
     const formData = await request.formData();
-    const content = String(formData.get('content') ?? '').trim();
+    const _action = String(formData.get('_action') ?? '');
 
+    if (_action === 'delete') {
+        let user: User | null = null;
+        try { user = await serverFetch<User>(request, API_ENDPOINTS.ME, undefined, { auth: 'optional' }); } catch { /* 비로그인 */ }
+        if (!user) return { ok: false, error: '로그인이 필요합니다.' };
+
+        let post: PostDetail | null = null;
+        try { post = await serverFetch<PostDetail>(request, API_ENDPOINTS.POST(id!), undefined, { auth: 'optional' }); } catch { /* 조회 실패 */ }
+        if (!post) return { ok: false, error: '게시글을 찾을 수 없습니다.' };
+        if (post.user_id !== user.user_id) return { ok: false, error: '삭제 권한이 없습니다.' };
+
+        try {
+            await serverFetch(request, API_ENDPOINTS.POST(id!), { method: 'DELETE' }, { auth: 'action' });
+            return redirect('/community');
+        } catch (err) {
+            if (err instanceof ApiError) return { ok: false, error: err.message };
+            return { ok: false, error: '게시글 삭제에 실패했습니다.' };
+        }
+    }
+
+    const content = String(formData.get('content') ?? '').trim();
     if (!content) return { ok: false, error: '댓글 내용을 입력해주세요.' };
 
     try {

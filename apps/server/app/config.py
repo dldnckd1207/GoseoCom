@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     app_secret_key: str = "change-me"
     app_cors_origins: str = "http://localhost:3000,http://localhost:3001"
     app_client_url: str = "http://localhost:3000"  # OAuth 로그인 완료 후 리다이렉트 URL
+    app_admin_url: str = "http://localhost:3001/admin"  # 관리자 OAuth 로그인 완료 후 리다이렉트 URL
 
     # PostgreSQL
     postgres_host: str = "localhost"
@@ -66,6 +67,8 @@ class Settings(BaseSettings):
 
     # 스케줄러
     scheduler_auto_reply_interval_seconds: int = 60
+    scheduler_comment_filter_interval_seconds: int = 300
+    scheduler_comment_filter_batch_size: int = 20
 
     # 관리자
     initial_admin_emails: str = ""

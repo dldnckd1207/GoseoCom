@@ -148,12 +148,18 @@ class Post(Base, TimestampMixin, SoftDeleteMixin):
     comment_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    book_id: Mapped[str | None] = mapped_column(
+        ForeignKey("ai_tn_book.id", ondelete="SET NULL"), nullable=True
+    )
     auto_reply_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="PENDING", server_default="PENDING"
     )
     auto_reply_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     board: Mapped["Board"] = relationship("Board", back_populates="posts")
+    category: Mapped["BoardCategory | None"] = relationship(
+        "BoardCategory", foreign_keys=[category_id]
+    )
     comments: Mapped[list["Comment"]] = relationship("Comment", back_populates="post")
 
     __table_args__ = (
@@ -163,6 +169,7 @@ class Post(Base, TimestampMixin, SoftDeleteMixin):
         Index("ix_post_auto_reply", "auto_reply_status", "created_at"),
         Index("ix_post_notice", "board_id", "notice_yn"),
         Index("ix_post_category", "category_id"),
+        Index("ix_post_book", "book_id"),
     )
 
 
@@ -191,6 +198,9 @@ class Comment(Base, TimestampMixin, SoftDeleteMixin):
     filter_reviewed_by: Mapped[str | None] = mapped_column(
         ForeignKey("com_tn_user.id", ondelete="RESTRICT"), nullable=True
     )
+    filter_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="PENDING", server_default="PENDING"
+    )
 
     post: Mapped["Post"] = relationship("Post", back_populates="comments")
 
@@ -199,6 +209,7 @@ class Comment(Base, TimestampMixin, SoftDeleteMixin):
         Index("ix_comment_user", "user_id"),
         Index("ix_comment_parent", "parent_id"),
         Index("ix_comment_filtered", "is_filtered"),
+        Index("ix_comment_filter_status", "filter_status"),
     )
 
 

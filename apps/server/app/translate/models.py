@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.files.models import File
+from app.core.user.models import User
 from app.db.base import Base
 from app.db.mixins import SoftDeleteMixin, TimestampMixin
 
@@ -42,11 +43,14 @@ class Book(Base, TimestampMixin, SoftDeleteMixin):
     )  # Phase 2
     share_token: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Phase 2
     summary_text: Mapped[str | None] = mapped_column(Text, nullable=True)  # Phase 2
-    keywords: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)  # Phase 2
+    keywords: Mapped[list[dict[str, object]] | None] = mapped_column(
+        JSONB, nullable=True
+    )  # Phase 2
 
     source_file: Mapped[File | None] = relationship(
         "File", foreign_keys=[source_file_id], lazy="select"
     )
+    owner: Mapped[User] = relationship("User", foreign_keys=[owner_user_id], lazy="select")
     pages: Mapped[list["BookPage"]] = relationship("BookPage", back_populates="book")
 
     __table_args__ = (
@@ -96,6 +100,7 @@ class PageRevision(Base):
         ForeignKey("ai_tn_book_page.id", ondelete="RESTRICT"), nullable=False
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
+    ocr_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     literal_text: Mapped[str] = mapped_column(Text, nullable=False)
     interpretive_text: Mapped[str] = mapped_column(Text, nullable=False)
     edited_by: Mapped[str] = mapped_column(
@@ -103,7 +108,30 @@ class PageRevision(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    __table_args__ = (Index("ix_page_revision_page", "page_id", "version"),)
+    __table_args__ = (
+        Index("ix_page_revision_page", "page_id", "version"),
+        UniqueConstraint("page_id", "version", name="uq_page_revision_version"),
+    )
+
+
+class BookBookmark(Base):
+    """공개 Book 북마크 — 로그인 사용자가 타인 공개 Book 저장"""
+
+    __tablename__ = "ai_tn_book_bookmark"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("com_tn_user.id", ondelete="CASCADE"), nullable=False
+    )
+    book_id: Mapped[str] = mapped_column(
+        ForeignKey("ai_tn_book.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "book_id", name="uq_book_bookmark_user_book"),
+        Index("ix_book_bookmark_user", "user_id"),
+    )
 
 
 class PipelineRun(Base):

@@ -7,6 +7,7 @@ import { Footer, Header } from '~/widgets/layout';
 import { API_ENDPOINTS } from '~/shared/api/endpoints';
 import { serverFetch } from '~/shared/api/server';
 import { REDIRECT_AFTER_LOGIN_KEY } from '~/shared/lib/redirect';
+import { useAuthStore } from '~/shared/stores/authStore';
 import { openModal } from '~/shared/ui/modal';
 
 import type { Route } from './+types/_layout';
@@ -26,6 +27,11 @@ export default function RootLayoutRoute() {
     const { user } = useLoaderData<typeof loader>();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const setUser = useAuthStore((s) => s.setUser);
+
+    useEffect(() => {
+        setUser(user);
+    }, [user, setUser]);
 
     useEffect(() => {
         // 1순위: 로그인 후 원래 URL 복귀 (sessionStorage)

@@ -1,19 +1,43 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Form, Link, useLoaderData, useActionData, useNavigation } from 'react-router';
 
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Paperclip, X } from 'lucide-react';
 
 import type { loader, action } from '~/routes/_layout.community.write';
 
 export function CommunityWriteView() {
-    const { boards, defaultBoard, categories } = useLoaderData<typeof loader>();
+    const { boards, defaultBoard, categories, myBooks } = useLoaderData<typeof loader>();
     const actionData = useActionData<typeof action>();
     const navigation = useNavigation();
     const isSubmitting = navigation.state === 'submitting';
 
     const [selectedBoard, setSelectedBoard] = useState(defaultBoard);
     const currentCategories = categories[selectedBoard] ?? [];
+    const currentBoardInfo = boards.find(b => b.board_code === selectedBoard);
+    const attachYn = currentBoardInfo?.attach_yn ?? false;
+    const attachExts = currentBoardInfo?.attach_ext
+        ? currentBoardInfo.attach_ext.split(',').map(e => `.${e.trim()}`)
+        : [];
+    const attachSizeKB = currentBoardInfo?.attach_size ?? 10240;
+
+    const [attachedFile, setAttachedFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        setAttachedFile(e.target.files?.[0] ?? null);
+    }
+
+    function handleBoardChange(boardCode: string) {
+        setSelectedBoard(boardCode);
+        setAttachedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+
+    function removeFile() {
+        setAttachedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }
 
     return (
         <div className="page-wrapper py-8">
@@ -31,7 +55,7 @@ export function CommunityWriteView() {
                         <h1 className="text-[length:var(--text-section-title)] font-bold text-gray-900">글 작성하기</h1>
                     </div>
 
-                    <Form method="post" className="p-6 space-y-5">
+                    <Form method="post" encType="multipart/form-data" className="p-6 space-y-5">
                         {/* 글 유형 */}
                         <div>
                             <p className="block mb-2 text-sm font-medium text-gray-700">
@@ -50,7 +74,7 @@ export function CommunityWriteView() {
                                                 defaultChecked={b.board_code === defaultBoard}
                                                 required
                                                 className="sr-only peer"
-                                                onChange={() => setSelectedBoard(b.board_code)}
+                                                onChange={() => handleBoardChange(b.board_code)}
                                             />
                                             <span className="inline-flex items-center px-4 py-2 font-medium text-gray-700 rounded-lg bg-gray-100 transition-colors peer-checked:bg-blue-600 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-blue-600 peer-focus-visible:ring-offset-2">
                                                 {b.board_name}
@@ -111,6 +135,72 @@ export function CommunityWriteView() {
                                 className="w-full px-4 py-3 rounded-lg border border-gray-300 resize-y focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
                             />
                         </div>
+
+                        {/* 번역 이력 연동 — 완료된 번역 이력이 있을 때만 표시 */}
+                        {myBooks.length > 0 && (
+                            <div>
+                                <label htmlFor="book_id" className="block mb-1 text-sm font-medium text-gray-700">
+                                    번역 이력 연동 <span className="text-gray-400 font-normal">(선택)</span>
+                                </label>
+                                <select
+                                    id="book_id"
+                                    name="book_id"
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent bg-white"
+                                >
+                                    <option value="">선택 안 함</option>
+                                    {myBooks.map(b => (
+                                        <option key={b.book_id} value={b.book_id}>{b.title}</option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">연동 시 AI 자동 답변 대신 번역 결과가 게시글에 표시됩니다.</p>
+                            </div>
+                        )}
+
+                        {/* 파일 첨부 — 게시판 attach_yn 기준으로 표시 */}
+                        {attachYn && (
+                            <div>
+                                <p className="block mb-2 text-sm font-medium text-gray-700">
+                                    파일 첨부{' '}
+                                    <span className="text-gray-400 font-normal">
+                                        (선택
+                                        {attachExts.length > 0 && ` · ${currentBoardInfo?.attach_ext}`}
+                                        {` · 최대 ${attachSizeKB >= 1024 ? `${attachSizeKB / 1024}MB` : `${attachSizeKB}KB`}`}
+                                        )
+                                    </span>
+                                </p>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    name="file"
+                                    id="file-upload"
+                                    accept={attachExts.join(',')}
+                                    onChange={handleFileChange}
+                                    className="sr-only"
+                                />
+                                {attachedFile ? (
+                                    <div className="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 w-fit">
+                                        <Paperclip className="w-4 h-4 text-blue-500 shrink-0" aria-hidden />
+                                        <span className="text-sm text-blue-700 truncate max-w-xs">{attachedFile.name}</span>
+                                        <button
+                                            type="button"
+                                            onClick={removeFile}
+                                            className="ml-1 text-blue-400 hover:text-blue-700 transition-colors"
+                                            aria-label="첨부 파일 제거"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <label
+                                        htmlFor="file-upload"
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-600 cursor-pointer hover:bg-gray-50 transition-colors"
+                                    >
+                                        <Paperclip className="w-4 h-4" aria-hidden />
+                                        파일 선택
+                                    </label>
+                                )}
+                            </div>
+                        )}
 
                         {actionData?.error && (
                             <p className="text-sm text-red-500">{actionData.error}</p>

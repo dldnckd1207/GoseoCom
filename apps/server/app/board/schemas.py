@@ -46,6 +46,11 @@ class BoardSummaryResponse(BaseModel):
     )
     sort_order: int = Field(..., description="노출 순서", examples=[0])
     use_yn: bool = Field(..., description="활성 여부", examples=[True])
+    attach_yn: bool = Field(..., description="첨부파일 허용 여부", examples=[True])
+    attach_ext: str | None = Field(
+        None, description="허용 확장자 CSV (예: 'jpg,png')", examples=["jpg,jpeg,png"]
+    )
+    attach_size: int = Field(..., description="최대 첨부 크기 (KB)", examples=[10240])
 
     model_config = {"from_attributes": True}
 
@@ -101,6 +106,7 @@ class AdminBoardCreateRequest(BaseModel):
     notice_yn: bool = Field(True, description="공지 기능 허용")
     reply_yn: bool = Field(False, description="답글 허용")
     comment_yn: bool = Field(False, description="댓글 허용")
+    category_yn: bool = Field(False, description="카테고리 허용")
     attach_yn: bool = Field(True, description="첨부파일 허용")
     attach_ext: str | None = Field(
         None, max_length=255, description="허용 확장자 CSV", examples=["jpg,png,pdf"]
@@ -135,6 +141,7 @@ class AdminBoardUpdateRequest(BaseModel):
     notice_yn: bool | None = None
     reply_yn: bool | None = None
     comment_yn: bool | None = None
+    category_yn: bool | None = None
     attach_yn: bool | None = None
     attach_ext: str | None = None
     attach_size: int | None = Field(None, ge=0)
@@ -161,6 +168,18 @@ class AdminBoardListRequest(BaseModel):
     use_yn: bool | None = Field(None, description="활성 여부 필터 (null=전체)")
     page: int = Field(1, ge=1, description="페이지 번호", examples=[1])
     size: int = Field(20, ge=1, le=100, description="페이지당 항목 수", examples=[20])
+
+
+class AdminBoardCategoryCreateRequest(BaseModel):
+    category_name: str = Field(..., max_length=100, description="카테고리 이름")
+    sort_order: int = Field(0, description="정렬 순서")
+    use_yn: bool = Field(True, description="사용 여부")
+
+
+class AdminBoardCategoryUpdateRequest(BaseModel):
+    category_name: str | None = Field(None, max_length=100, description="카테고리 이름")
+    sort_order: int | None = Field(None, description="정렬 순서")
+    use_yn: bool | None = Field(None, description="사용 여부")
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +218,19 @@ class AdminBoardResponse(BaseModel):
     pipeline_enabled: bool = Field(..., description="파이프라인 활성화 (Phase 2)")
     sort_order: int = Field(..., description="노출 순서", examples=[0])
     use_yn: bool = Field(..., description="활성 여부")
+    del_yn: bool = Field(..., description="삭제 여부")
+
+    model_config = {"from_attributes": True}
+
+
+class AdminBoardCategoryResponse(BaseModel):
+    """관리자용 게시판 카테고리 응답"""
+
+    id: str = Field(..., description="카테고리 ID", examples=["BCAT_00000001"])
+    board_id: str = Field(..., description="게시판 ID", examples=["BRD_00000001"])
+    category_name: str = Field(..., description="카테고리 이름", examples=["조선"])
+    sort_order: int = Field(..., description="정렬 순서", examples=[3])
+    use_yn: bool = Field(..., description="사용 여부")
     del_yn: bool = Field(..., description="삭제 여부")
 
     model_config = {"from_attributes": True}

@@ -1,10 +1,10 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.translate.models import Book, BookPage, PipelineRun
+from app.translate.models import Book, BookBookmark, BookPage, PageRevision, PipelineRun
 
 
 class BookRepository:
@@ -56,15 +56,57 @@ class BookRepository:
         page: int,
         size: int,
         status: str | None,
+        is_favorite: bool | None = None,
+        q: str | None = None,
     ) -> tuple[list[Book], int]:
         conditions = [Book.owner_user_id == owner_user_id, Book.del_yn.is_(False)]
         if status:
             conditions.append(Book.status == status)
+        if is_favorite is not None:
+            conditions.append(Book.is_favorite.is_(is_favorite))
+        if q:
+            conditions.append(Book.title.ilike(f"%{q}%"))
         base = select(Book).where(*conditions).order_by(Book.created_at.desc())
         total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
         total: int = total_result.scalar_one()
         result = await self.db.execute(base.offset((page - 1) * size).limit(size))
         return list(result.scalars().all()), total
+
+    async def list_completed_public(
+        self,
+        page: int,
+        size: int,
+        q: str | None = None,
+        bm_user_id: str | None = None,
+    ) -> tuple[list[Book], int]:
+        conditions = [Book.status == "COMPLETED", Book.del_yn.is_(False)]
+        if q:
+            conditions.append(Book.title.ilike(f"%{q}%"))
+        if bm_user_id:
+            conditions.append(
+                Book.id.in_(select(BookBookmark.book_id).where(BookBookmark.user_id == bm_user_id))
+            )
+        base = (
+            select(Book)
+            .options(selectinload(Book.source_file), selectinload(Book.owner))
+            .where(*conditions)
+            .order_by(Book.created_at.desc())
+        )
+        total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
+        total: int = total_result.scalar_one()
+        result = await self.db.execute(base.offset((page - 1) * size).limit(size))
+        return list(result.scalars().all()), total
+
+    async def get_completed_public_by_id(self, book_id: str) -> Book | None:
+        result = await self.db.execute(
+            select(Book)
+            .options(
+                selectinload(Book.pages.and_(BookPage.del_yn.is_(False))),
+                selectinload(Book.source_file),
+            )
+            .where(Book.id == book_id, Book.del_yn.is_(False), Book.status == "COMPLETED")
+        )
+        return result.scalar_one_or_none()
 
 
 class BookPageRepository:
@@ -86,6 +128,36 @@ class BookPageRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_book_and_page_no(self, book_id: str, page_no: int) -> BookPage | None:
+        result = await self.db.execute(
+            select(BookPage)
+            .where(
+                BookPage.book_id == book_id,
+                BookPage.page_no == page_no,
+                BookPage.del_yn.is_(False),
+            )
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+
+class PageRevisionRepository:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def get_max_version(self, page_id: str) -> int:
+        result = await self.db.execute(
+            select(func.coalesce(func.max(PageRevision.version), 0)).where(
+                PageRevision.page_id == page_id
+            )
+        )
+        return result.scalar_one()
+
+    async def create(self, revision: PageRevision) -> PageRevision:
+        self.db.add(revision)
+        await self.db.flush()
+        return revision
+
 
 class PipelineRunRepository:
     def __init__(self, db: AsyncSession) -> None:
@@ -99,3 +171,36 @@ class PipelineRunRepository:
     async def get_by_id(self, run_id: int) -> PipelineRun | None:
         result = await self.db.execute(select(PipelineRun).where(PipelineRun.id == run_id))
         return result.scalar_one_or_none()
+
+
+class BookBookmarkRepository:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def get(self, user_id: str, book_id: str) -> BookBookmark | None:
+        result = await self.db.execute(
+            select(BookBookmark).where(
+                BookBookmark.user_id == user_id,
+                BookBookmark.book_id == book_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, user_id: str, book_id: str) -> BookBookmark:
+        bookmark = BookBookmark(user_id=user_id, book_id=book_id, created_at=datetime.now(UTC))
+        self.db.add(bookmark)
+        await self.db.flush()
+        return bookmark
+
+    async def delete(self, bookmark: BookBookmark) -> None:
+        await self.db.delete(bookmark)
+        await self.db.flush()
+
+    async def get_bookmarked_ids(self, user_id: str, book_ids: list[str]) -> set[str]:
+        result = await self.db.execute(
+            select(BookBookmark.book_id).where(
+                BookBookmark.user_id == user_id,
+                BookBookmark.book_id.in_(book_ids),
+            )
+        )
+        return set(result.scalars().all())

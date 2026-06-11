@@ -2,10 +2,10 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.board.models import Board, BoardCategory, Post
+from app.board.models import Board, BoardCategory, Comment, Post
 from app.board.schemas import AdminBoardListRequest, BoardListRequest
 
 
@@ -27,7 +27,7 @@ class BoardRepository:
             conditions.append(Board.board_group == req.board_group)
         else:
             conditions.append(Board.guest_read_yn.is_(True))
-        base = select(Board).where(*conditions).order_by(Board.sort_order.asc())
+        base = select(Board).where(*conditions).order_by(Board.sort_order.asc(), Board.id.desc())
         total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
         total: int = total_result.scalar_one()
         result = await self.db.execute(base.offset((req.page - 1) * req.size).limit(req.size))
@@ -43,7 +43,7 @@ class BoardRepository:
             conditions.append(Board.board_group == req.board_group)
         else:
             conditions.append(Board.read_yn.is_(True))
-        base = select(Board).where(*conditions).order_by(Board.sort_order.asc())
+        base = select(Board).where(*conditions).order_by(Board.sort_order.asc(), Board.id.desc())
         total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
         total: int = total_result.scalar_one()
         result = await self.db.execute(base.offset((req.page - 1) * req.size).limit(req.size))
@@ -84,7 +84,7 @@ class BoardRepository:
         if req.keyword:
             conditions.append(Board.board_name.ilike(f"%{req.keyword}%"))
 
-        base = select(Board).where(*conditions).order_by(Board.sort_order.asc())
+        base = select(Board).where(*conditions).order_by(Board.id.desc())
         total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
         total: int = total_result.scalar_one()
         result = await self.db.execute(base.offset((req.page - 1) * req.size).limit(req.size))
@@ -112,9 +112,30 @@ class BoardRepository:
         return board
 
     async def soft_delete(self, board: Board, deleted_by: str) -> None:
+        deleted_at = datetime.now(UTC)
         board.del_yn = True
-        board.deleted_at = datetime.now(UTC)
+        board.deleted_at = deleted_at
         board.deleted_by = deleted_by
+        await self.db.execute(
+            update(Comment)
+            .where(
+                Comment.post_id.in_(
+                    select(Post.id).where(Post.board_id == board.id, Post.del_yn.is_(False))
+                ),
+                Comment.del_yn.is_(False),
+            )
+            .values(del_yn=True, deleted_at=deleted_at, deleted_by=deleted_by)
+        )
+        await self.db.execute(
+            update(Post)
+            .where(Post.board_id == board.id, Post.del_yn.is_(False))
+            .values(del_yn=True, deleted_at=deleted_at, deleted_by=deleted_by)
+        )
+        await self.db.execute(
+            update(BoardCategory)
+            .where(BoardCategory.board_id == board.id, BoardCategory.del_yn.is_(False))
+            .values(del_yn=True, deleted_at=deleted_at, deleted_by=deleted_by)
+        )
         await self.db.flush()
 
     async def has_posts(self, board_id: str) -> bool:
@@ -135,7 +156,7 @@ class BoardRepository:
                 BoardCategory.use_yn.is_(True),
                 BoardCategory.del_yn.is_(False),
             )
-            .order_by(BoardCategory.sort_order)
+            .order_by(BoardCategory.sort_order.asc(), BoardCategory.id.desc())
         )
         return list(result.scalars().all())
 
@@ -148,3 +169,36 @@ class BoardRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def admin_list_categories(self, board_id: str) -> list[BoardCategory]:
+        result = await self.db.execute(
+            select(BoardCategory)
+            .where(BoardCategory.board_id == board_id, BoardCategory.del_yn.is_(False))
+            .order_by(BoardCategory.sort_order.asc(), BoardCategory.id.desc())
+        )
+        return list(result.scalars().all())
+
+    async def admin_get_category(self, board_id: str, category_id: str) -> BoardCategory | None:
+        result = await self.db.execute(
+            select(BoardCategory).where(
+                BoardCategory.id == category_id,
+                BoardCategory.board_id == board_id,
+                BoardCategory.del_yn.is_(False),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create_category(self, category: BoardCategory) -> BoardCategory:
+        self.db.add(category)
+        await self.db.flush()
+        return category
+
+    async def update_category(self, category: BoardCategory) -> BoardCategory:
+        await self.db.flush()
+        return category
+
+    async def soft_delete_category(self, category: BoardCategory, deleted_by: str) -> None:
+        category.del_yn = True
+        category.deleted_at = datetime.now(UTC)
+        category.deleted_by = deleted_by
+        await self.db.flush()

@@ -1,5 +1,6 @@
 """SFR-101: 게시글 CRUD 테스트"""
 
+import uuid
 from datetime import UTC, datetime
 
 import pytest
@@ -10,6 +11,7 @@ from app.board.models import Board
 from app.core.common.id_generator import next_id
 from app.core.security import create_access_token
 from app.core.user.models import User
+from app.translate.models import Book, BookPage
 from tests.conftest import unique_email
 
 # ---------------------------------------------------------------------------
@@ -302,3 +304,274 @@ async def test_community_board_detail_forbidden_without_login(
     auth_client.cookies.clear()
     resp = await auth_client.get(f"/api/v1/posts/{post_data['id']}")
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# SFR-104: auto_reply_status 초기값 검증
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_post_auto_reply_status_pending(auth_client: AsyncClient, db: AsyncSession):
+    """auto_reply_enabled=true 게시판 → 게시글 생성 시 auto_reply_status=PENDING"""
+    now = datetime.now(UTC)
+    board = Board(
+        id=await next_id("BRD_", db),
+        board_code=f"ar_pending_{uuid.uuid4().hex[:6]}",
+        board_name="자동답변 활성 게시판",
+        board_type="LIST",
+        read_yn=True,
+        guest_read_yn=True,
+        write_yn=True,
+        guest_write_yn=False,
+        notice_yn=False,
+        reply_yn=False,
+        comment_yn=True,
+        secret_yn=False,
+        like_yn=False,
+        category_yn=False,
+        attach_yn=False,
+        attach_size=10240,
+        attach_count=5,
+        list_count=20,
+        auto_reply_enabled=True,
+        auto_reply_delay_min=5,
+        pipeline_enabled=False,
+        sort_order=99,
+        use_yn=True,
+        created_at=now,
+        created_by="USR_00000000",
+        updated_at=now,
+        updated_by="USR_00000000",
+    )
+    db.add(board)
+    await db.commit()
+
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+    resp = await auth_client.post(
+        "/api/v1/posts",
+        json={"board_code": board.board_code, "title": "제목", "content": "본문"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["body"]["data"]["auto_reply_status"] == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_create_post_auto_reply_status_skipped(auth_client: AsyncClient, db: AsyncSession):
+    """auto_reply_enabled=false 게시판 → 게시글 생성 시 auto_reply_status=SKIPPED"""
+    now = datetime.now(UTC)
+    board = Board(
+        id=await next_id("BRD_", db),
+        board_code=f"ar_skipped_{uuid.uuid4().hex[:6]}",
+        board_name="자동답변 비활성 게시판",
+        board_type="LIST",
+        read_yn=True,
+        guest_read_yn=True,
+        write_yn=True,
+        guest_write_yn=False,
+        notice_yn=False,
+        reply_yn=False,
+        comment_yn=True,
+        secret_yn=False,
+        like_yn=False,
+        category_yn=False,
+        attach_yn=False,
+        attach_size=10240,
+        attach_count=5,
+        list_count=20,
+        auto_reply_enabled=False,
+        auto_reply_delay_min=5,
+        pipeline_enabled=False,
+        sort_order=99,
+        use_yn=True,
+        created_at=now,
+        created_by="USR_00000000",
+        updated_at=now,
+        updated_by="USR_00000000",
+    )
+    db.add(board)
+    await db.commit()
+
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+    resp = await auth_client.post(
+        "/api/v1/posts",
+        json={"board_code": board.board_code, "title": "제목", "content": "본문"},
+    )
+    assert resp.status_code == 201
+    assert resp.json()["body"]["data"]["auto_reply_status"] == "SKIPPED"
+
+
+# ---------------------------------------------------------------------------
+# SFR-119: 번역 이력 연동
+# ---------------------------------------------------------------------------
+
+
+async def _create_completed_book(db: AsyncSession, owner_id: str) -> Book:
+    now = datetime.now(UTC)
+    book = Book(
+        id=await next_id("BOOK_", db),
+        owner_user_id=owner_id,
+        title="고서번역_테스트",
+        book_type="QUICK",
+        source_type="IMAGE",
+        total_pages=1,
+        status="COMPLETED",
+        summary_text="요약 텍스트",
+        keywords=[{"word": "春", "reading": "춘", "meaning": "봄", "count": 3}],
+        created_at=now,
+        created_by=owner_id,
+        updated_at=now,
+        updated_by=owner_id,
+    )
+    db.add(book)
+    await db.flush()
+
+    page = BookPage(
+        id=await next_id("BPAGE_", db),
+        book_id=book.id,
+        page_no=1,
+        ocr_text="春來不似春",
+        literal_text="봄이 왔지만 봄 같지 않다",
+        interpretive_text="봄이 왔어도 봄답지 않구나",
+        status="COMPLETED",
+        created_at=now,
+        created_by=owner_id,
+        updated_at=now,
+        updated_by=owner_id,
+    )
+    db.add(page)
+    await db.commit()
+    await db.refresh(book)
+    return book
+
+
+@pytest.mark.asyncio
+async def test_create_post_with_book_id_sets_skipped(auth_client: AsyncClient, db: AsyncSession):
+    """book_id 전달 시 auto_reply_status=SKIPPED, post.book_id 저장"""
+    user = await _create_user(db)
+    book = await _create_completed_book(db, user.id)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+
+    resp = await auth_client.post(
+        "/api/v1/posts",
+        json={
+            "board_code": "translation",
+            "title": "번역연동",
+            "content": "본문",
+            "book_id": book.id,
+        },
+    )
+    assert resp.status_code == 201
+    data = resp.json()["body"]["data"]
+    assert data["auto_reply_status"] == "SKIPPED"
+
+
+@pytest.mark.asyncio
+async def test_create_post_with_invalid_book_id_returns_404(
+    auth_client: AsyncClient, db: AsyncSession
+):
+    """존재하지 않는 book_id → 404"""
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+
+    resp = await auth_client.post(
+        "/api/v1/posts",
+        json={
+            "board_code": "translation",
+            "title": "제목",
+            "content": "본문",
+            "book_id": "BOOK_NOTEXIST",
+        },
+    )
+    assert resp.status_code == 404
+    assert resp.json()["header"]["code"] == "BOOK_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_create_post_with_other_user_book_returns_403(
+    auth_client: AsyncClient, db: AsyncSession
+):
+    """타인 소유 book_id → 403"""
+    owner = await _create_user(db)
+    book = await _create_completed_book(db, owner.id)
+
+    requester = await _create_user(db)
+    token = create_access_token(requester.id, user_level=10, user_name=requester.name)
+    auth_client.cookies.set("access_token", token)
+
+    resp = await auth_client.post(
+        "/api/v1/posts",
+        json={"board_code": "translation", "title": "제목", "content": "본문", "book_id": book.id},
+    )
+    assert resp.status_code == 403
+    assert resp.json()["header"]["code"] == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_create_post_with_non_completed_book_returns_400(
+    auth_client: AsyncClient, db: AsyncSession
+):
+    """COMPLETED 아닌 book_id → 400"""
+    user = await _create_user(db)
+    book = await _create_completed_book(db, user.id)
+    book.status = "TRANSLATING"
+    await db.commit()
+
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+
+    resp = await auth_client.post(
+        "/api/v1/posts",
+        json={"board_code": "translation", "title": "제목", "content": "본문", "book_id": book.id},
+    )
+    assert resp.status_code == 400
+    assert resp.json()["header"]["code"] == "INVALID_BOOK_STATUS"
+
+
+@pytest.mark.asyncio
+async def test_get_post_includes_book_data(auth_client: AsyncClient, db: AsyncSession):
+    """book_id 연동된 게시글 조회 → response.book 포함, pages 있음"""
+    user = await _create_user(db)
+    book = await _create_completed_book(db, user.id)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    auth_client.cookies.set("access_token", token)
+
+    create_resp = await auth_client.post(
+        "/api/v1/posts",
+        json={
+            "board_code": "translation",
+            "title": "번역연동",
+            "content": "본문",
+            "book_id": book.id,
+        },
+    )
+    assert create_resp.status_code == 201
+    post_id = create_resp.json()["body"]["data"]["id"]
+
+    get_resp = await auth_client.get(f"/api/v1/posts/{post_id}")
+    assert get_resp.status_code == 200
+    data = get_resp.json()["body"]["data"]
+    assert data["book"] is not None
+    assert data["book"]["book_id"] == book.id
+    assert len(data["book"]["pages"]) == 1
+    assert data["book"]["pages"][0]["ocr_text"] == "春來不似春"
+
+
+@pytest.mark.asyncio
+async def test_get_post_without_book_id_returns_null_book(
+    auth_client: AsyncClient, db: AsyncSession
+):
+    """book_id 없는 게시글 조회 → response.book is None"""
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    post_data = await _create_post(auth_client, token)
+
+    get_resp = await auth_client.get(f"/api/v1/posts/{post_data['id']}")
+    assert get_resp.status_code == 200
+    assert get_resp.json()["body"]["data"]["book"] is None

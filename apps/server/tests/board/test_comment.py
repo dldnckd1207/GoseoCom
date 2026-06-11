@@ -4,8 +4,10 @@ from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.board.models import Comment
 from app.core.common.id_generator import next_id
 from app.core.security import create_access_token
 from app.core.user.models import User
@@ -234,3 +236,24 @@ async def test_delete_comment_forbidden(auth_client: AsyncClient, db: AsyncSessi
     resp = await auth_client.delete(f"/api/v1/posts/{post['id']}/comments/{comment['id']}")
     assert resp.status_code == 403
     assert resp.json()["header"]["code"] == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_create_comment_initializes_filter_status_pending(
+    auth_client: AsyncClient, db: AsyncSession
+):
+    """댓글 등록 시 filter_status=PENDING, is_filtered=False 초기화 확인 (#120)"""
+    user = await _create_user(db)
+    token = create_access_token(user.id, user_level=10, user_name=user.name)
+    post = await _create_post(auth_client, token)
+
+    comment = await _create_comment(auth_client, token, post["id"], "테스트 댓글")
+
+    # 응답에 is_filtered=False 포함
+    assert comment["is_filtered"] is False
+    assert comment["filter_reason"] is None
+
+    # DB에 filter_status=PENDING 저장
+    result = await db.execute(select(Comment).where(Comment.id == comment["id"]))
+    db_comment = result.scalar_one()
+    assert db_comment.filter_status == "PENDING"

@@ -1,9 +1,13 @@
 """게시글 Repository — DB 쿼리"""
 
-from datetime import UTC, datetime
+from __future__ import annotations
 
-from sqlalchemy import func, select, update
+from datetime import UTC, datetime
+from typing import Literal
+
+from sqlalchemy import ColumnElement, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.board.models import Post, PostHistory
 
@@ -12,7 +16,7 @@ class PostRepository:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
 
-    async def list(
+    async def list_by_boards(
         self,
         board_ids: list[str],
         keyword: str | None,
@@ -32,12 +36,63 @@ class PostRepository:
         )
         total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
         total: int = total_result.scalar_one()
-        result = await self.db.execute(base.offset((page - 1) * size).limit(size))
+        result = await self.db.execute(
+            base.options(selectinload(Post.category)).offset((page - 1) * size).limit(size)
+        )
         return list(result.scalars().all()), total
 
     async def get_by_id(self, post_id: str) -> Post | None:
         result = await self.db.execute(
-            select(Post).where(Post.id == post_id, Post.del_yn.is_(False))
+            select(Post)
+            .options(selectinload(Post.category))
+            .where(Post.id == post_id, Post.del_yn.is_(False))
+        )
+        return result.scalar_one_or_none()
+
+    async def admin_list(
+        self,
+        *,
+        keyword: str | None,
+        board_id: str | None,
+        author_keyword: str | None,
+        notice_yn: bool | None,
+        deleted_status: Literal["active", "deleted", "all"],
+        page: int,
+        size: int,
+    ) -> tuple[list[Post], int]:
+        conditions: list[ColumnElement[bool]] = [Post.parent_id.is_(None)]
+        if keyword:
+            like = f"%{keyword}%"
+            conditions.append(or_(Post.title.ilike(like), Post.content.ilike(like)))
+        if board_id:
+            conditions.append(Post.board_id == board_id)
+        if author_keyword:
+            like = f"%{author_keyword}%"
+            conditions.append(or_(Post.author_name.ilike(like), Post.user_id.ilike(like)))
+        if notice_yn is not None:
+            conditions.append(Post.notice_yn.is_(notice_yn))
+        if deleted_status == "active":
+            conditions.append(Post.del_yn.is_(False))
+        elif deleted_status == "deleted":
+            conditions.append(Post.del_yn.is_(True))
+
+        base = (
+            select(Post).where(*conditions).order_by(Post.notice_yn.desc(), Post.created_at.desc())
+        )
+        total_result = await self.db.execute(select(func.count()).select_from(base.subquery()))
+        total: int = total_result.scalar_one()
+        result = await self.db.execute(
+            base.options(selectinload(Post.board), selectinload(Post.category))
+            .offset((page - 1) * size)
+            .limit(size)
+        )
+        return list(result.scalars().all()), total
+
+    async def admin_get_by_id(self, post_id: str) -> Post | None:
+        result = await self.db.execute(
+            select(Post)
+            .options(selectinload(Post.board), selectinload(Post.category))
+            .where(Post.id == post_id)
         )
         return result.scalar_one_or_none()
 
@@ -68,6 +123,15 @@ class PostRepository:
         post.del_yn = True
         post.deleted_at = now
         post.deleted_by = deleted_by
+        await self.db.flush()
+
+    async def restore(self, post: Post, updated_by: str) -> None:
+        now = datetime.now(UTC)
+        post.del_yn = False
+        post.deleted_at = None
+        post.deleted_by = None
+        post.updated_at = now
+        post.updated_by = updated_by
         await self.db.flush()
 
 

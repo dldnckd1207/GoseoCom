@@ -27,18 +27,21 @@ export async function serverFetch<T>(
     }
 
     if (res.status === 401) {
-        // optional/action: refresh 시도 없이 ApiError throw
-        if (auth === 'optional' || auth === 'action') {
+        // action: refresh 시도 없이 ApiError throw
+        if (auth === 'action') {
             throw new ApiError('UNAUTHORIZED', '로그인이 필요합니다.', 401);
         }
 
-        // required: refresh 시도 후 성공 시 현재 URL redirect, 실패 시 /login redirect
+        // optional/required: refresh 시도
+        // - optional: 성공 시 현재 URL redirect, 실패 시 ApiError throw (user: null 처리)
+        // - required: 성공 시 현재 URL redirect, 실패 시 /login redirect
         const url = new URL(request.url);
         const currentPath = `${url.pathname}${url.search}`;
         const loginRedirect = `/login?redirect=${encodeURIComponent(currentPath)}`;
 
         const hasRefreshToken = cookie.split(';').some((c) => c.trim().startsWith('refresh_token='));
         if (!hasRefreshToken) {
+            if (auth === 'optional') throw new ApiError('UNAUTHORIZED', '로그인이 필요합니다.', 401);
             throw redirect(loginRedirect);
         }
 
@@ -48,12 +51,14 @@ export async function serverFetch<T>(
         });
 
         if (!refreshRes.ok) {
+            if (auth === 'optional') throw new ApiError('UNAUTHORIZED', '로그인이 필요합니다.', 401);
             throw redirect(loginRedirect);
         }
 
         // 다중 Set-Cookie 처리 (access_token + refresh_token)
         const setCookieHeaders = refreshRes.headers.getSetCookie?.() ?? [];
         if (setCookieHeaders.length === 0) {
+            if (auth === 'optional') throw new ApiError('UNAUTHORIZED', '로그인이 필요합니다.', 401);
             throw redirect(loginRedirect);
         }
 

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.models import LoginLog
 from app.auth.repository import AuthRepository
 from app.config import settings
-from app.core.common.enums import LoginResult
+from app.core.common.enums import LoginResult, UserRole
 from app.core.common.id_generator import next_id
 from app.core.security import (
     create_access_token,
@@ -128,7 +128,7 @@ class AuthService:
                 email=actual_email,
                 name=name,
                 profile_image_url=profile_image_url,
-                user_level=10,
+                user_level=self._resolve_user_level(email),
                 joined_at=now,
                 created_at=now,
                 created_by=user_id,
@@ -136,6 +136,10 @@ class AuthService:
                 updated_by=user_id,
             )
             await self.repo.create_user(user)
+        elif self._should_promote_to_initial_admin(user, email):
+            user.user_level = UserRole.ADMIN.value
+            user.updated_at = now
+            user.updated_by = user.id
 
         if not oauth:
             await self.repo.create_oauth(
@@ -153,6 +157,16 @@ class AuthService:
             )
 
         return user
+
+    def _resolve_user_level(self, email: str | None) -> int:
+        if email and email in settings.admin_emails:
+            return UserRole.ADMIN.value
+        return UserRole.USER.value
+
+    def _should_promote_to_initial_admin(self, user: User, email: str | None) -> bool:
+        return bool(
+            email and email in settings.admin_emails and user.user_level < UserRole.ADMIN.value
+        )
 
     async def refresh(self, refresh_jwt: str, request: Request) -> tuple[str, str]:
         token = await self.repo.get_token_by_hash(hash_token(refresh_jwt))
